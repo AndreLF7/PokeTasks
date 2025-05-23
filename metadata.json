@@ -1,0 +1,6 @@
+{
+  "name": "Pokémon Habit Tracker",
+  "description": "A web application where users can track daily habits and earn Pokémon rewards for completing them. Collected Pokémon can be viewed in a personal collection and a Pokedex.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
