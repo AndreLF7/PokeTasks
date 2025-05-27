@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import HabitInput from '../components/HabitInput';
@@ -56,19 +56,66 @@ const HabitsPage: React.FC = () => {
   const [revealedPokemon, setRevealedPokemon] = useState<CaughtPokemon | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [ballUsed, setBallUsed] = useState<BallType | null>(null);
+  const [timeLeftForReset, setTimeLeftForReset] = useState<string>("Calculando...");
 
-  const handleBallClick = (type: BallType) => {
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setDate(now.getDate() + 1);
+      midnight.setHours(0, 0, 0, 0);
+
+      const diff = midnight.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeLeftForReset("00:00:00"); // Or "Reiniciando..."
+        // The context interval should handle the actual reset.
+        // Optionally, trigger a check here if needed, but avoid duplicate logic.
+        return;
+      }
+
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeLeftForReset(
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      );
+    };
+
+    calculateTimeLeft(); // Initial calculation
+    const timerId = setInterval(calculateTimeLeft, 1000);
+
+    return () => clearInterval(timerId);
+  }, []);
+
+
+  const handleBallClick = async (type: BallType) => {
     if (!currentUser) return;
     let caught: CaughtPokemon | null = null;
 
+    // Check if there's any habit with pendingRewardConfirmation
+    const hasPendingReward = currentUser.habits.some(h => h.pendingRewardConfirmation);
+    if (!hasPendingReward && (type === 'poke' || type === 'great' || type === 'ultra' || type === 'master')) {
+        // Allow using balls even if no specific habit reward is pending,
+        // IF the intent is that balls can be used "freely" once obtained.
+        // For now, this only proceeds if a ball is to be used.
+        // The `confirmNextPendingReward` in UserContext will only confirm if a habit IS pending.
+    }
+
+
     if (type === 'poke' && currentUser.pokeBalls > 0) {
-      caught = catchFromPokeBall();
+      // FIX: Await the promise to get CaughtPokemon | null
+      caught = await catchFromPokeBall();
     } else if (type === 'great' && currentUser.greatBalls > 0) {
-      caught = catchFromGreatBall();
+      // FIX: Await the promise to get CaughtPokemon | null
+      caught = await catchFromGreatBall();
     } else if (type === 'ultra' && currentUser.ultraBalls > 0) {
-      caught = catchFromUltraBall();
+      // FIX: Await the promise to get CaughtPokemon | null
+      caught = await catchFromUltraBall();
     } else if (type === 'master' && currentUser.masterBalls > 0) {
-      caught = catchFromMasterBall();
+      // FIX: Await the promise to get CaughtPokemon | null
+      caught = await catchFromMasterBall();
     }
 
 
@@ -76,6 +123,21 @@ const HabitsPage: React.FC = () => {
       setRevealedPokemon(caught);
       setBallUsed(type);
       setIsModalOpen(true);
+    } else if (
+        (type === 'poke' && currentUser.pokeBalls === 0) ||
+        (type === 'great' && currentUser.greatBalls === 0) ||
+        (type === 'ultra' && currentUser.ultraBalls === 0) ||
+        (type === 'master' && currentUser.masterBalls === 0)
+    ) {
+        // alert(`Você não tem ${getTranslatedBallName(type, true)} suficientes.`);
+        // This case is handled by the UI not showing balls if count is 0.
+        // If somehow clicked, this is a fallback.
+    } else if (!hasPendingReward && (type === 'poke' || type === 'great' || type === 'ultra')) {
+      // This alert might be too intrusive if balls can be used freely.
+      // For now, we assume a pending reward is preferred to consume a ball.
+      // If no specific habit is pending, using a ball might not link to a habit completion XP.
+      // The UserContext's confirmNextPendingReward will handle this gracefully.
+      // alert("Complete um hábito primeiro para designar a recompensa!");
     }
   };
 
@@ -88,6 +150,8 @@ const HabitsPage: React.FC = () => {
   if (!currentUser) return <p className="text-center text-xl py-10">Carregando dados do usuário...</p>;
 
   const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions } = currentUser;
+  const hasAnyPendingReward = habits.some(h => h.pendingRewardConfirmation);
+
 
   return (
     <div className="space-y-8">
@@ -113,6 +177,12 @@ const HabitsPage: React.FC = () => {
             </Link>
         </div>
         <p className="text-slate-400 text-sm mt-1">Marcações e contagem de conclusões são reiniciadas diariamente à meia-noite.</p>
+        <p className="text-slate-400 text-sm mt-1 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Tempo para reiniciar: <span className="font-semibold text-yellow-300 ml-1">{timeLeftForReset}</span>
+        </p>
       </div>
 
       <HabitInput />
@@ -129,6 +199,12 @@ const HabitsPage: React.FC = () => {
           <p className="text-xl text-slate-400">Nenhum hábito adicionado ainda.</p>
           <p className="text-slate-500">Hora de definir algumas metas, Treinador!</p>
         </div>
+      )}
+      
+      {(!hasAnyPendingReward && (pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0)) && (
+        <p className="text-center text-sm text-yellow-200 bg-slate-700 p-2 rounded-md">
+          Você tem bolas não resgatadas! Complete um novo hábito ou use uma bola diretamente.
+        </p>
       )}
 
       {(pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0) && (
@@ -176,7 +252,9 @@ const HabitsPage: React.FC = () => {
               </div>
             </div>
           )}
-           <p className="text-sm text-slate-400 mt-4 text-center">Clique em uma Bola para capturar um Pokémon!</p>
+           <p className="text-sm text-slate-400 mt-4 text-center">
+            {hasAnyPendingReward ? "Clique em uma Bola para usar sua recompensa pendente e tentar capturar um Pokémon!" : "Clique em uma Bola para capturar um Pokémon!"}
+            </p>
         </div>
       )}
       

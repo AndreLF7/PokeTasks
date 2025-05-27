@@ -11,8 +11,35 @@ export const POKEMON_API_SHINY_SPRITE_URL = (id: number) => `https://raw.githubu
 export const SHINY_CHANCE = 0.001; // 0.1% chance
 
 // XP and Level constants
-export const XP_PER_HABIT_COMPLETION = 10;
-export const XP_PER_LEVEL = 100;
+export const XP_PER_HABIT_COMPLETION = 10; // XP for completing a habit (confirmed via ball use)
+
+// XP granted for using a specific ball type
+export const XP_FROM_POKEBALL = 5;
+export const XP_FROM_GREATBALL = 15;
+export const XP_FROM_ULTRABALL = 40;
+export const XP_FROM_MASTERBALL = 100; // Master Balls grant significant XP
+
+// Total XP required to reach each level. Index + 1 = Level.
+// Level 1: 0 XP (implicit start)
+// Level 2: 100 XP
+// Level 3: 300 XP
+// Level 4: 600 XP
+// Level 5: 1000 XP
+// ... and so on
+export const LEVEL_THRESHOLDS: number[] = [
+  0,    // Start (Level 1)
+  100,  // XP for Level 2
+  300,  // XP for Level 3
+  600,  // XP for Level 4
+  1000, // XP for Level 5
+  1500, // XP for Level 6
+  2100, // XP for Level 7
+  2800, // XP for Level 8
+  3600, // XP for Level 9
+  4500, // XP for Level 10
+  5500  // XP for Level 11 (Example, can be extended)
+];
+export const MAX_PLAYER_LEVEL = LEVEL_THRESHOLDS.length;
 
 
 // Helper function for translated ball names
