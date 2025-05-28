@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import BallOddsPage from './pages/BallOddsPage';
 import StatsPage from './pages/StatsPage';
 import ProfilePage from './pages/ProfilePage'; // Import the ProfilePage
+import RankingPage from './pages/RankingPage'; // Import the RankingPage
 import { useUser } from './contexts/UserContext';
 
 const App: React.FC = () => {
@@ -34,7 +35,8 @@ const App: React.FC = () => {
             <Route path="/pokedex" element={currentUser ? <PokedexPage /> : <Navigate to="/login" />} />
             <Route path="/ball-odds" element={currentUser ? <BallOddsPage /> : <Navigate to="/login" />} />
             <Route path="/stats" element={currentUser ? <StatsPage /> : <Navigate to="/login" />} />
-            <Route path="/profile" element={currentUser ? <ProfilePage /> : <Navigate to="/login" />} /> {/* Add new route for ProfilePage */}
+            <Route path="/profile" element={currentUser ? <ProfilePage /> : <Navigate to="/login" />} />
+            <Route path="/ranking" element={currentUser ? <RankingPage /> : <Navigate to="/login" />} /> {/* Add new route for RankingPage */}
             <Route path="*" element={<Navigate to={currentUser ? "/" : "/login"} />} />
           </Routes>
         </main>

@@ -38,6 +38,9 @@ const Navbar: React.FC = () => {
           <NavLink to="/pokedex" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>
             Pokédex
           </NavLink>
+          <NavLink to="/ranking" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}> {/* Add Ranking link */}
+            Ranking
+          </NavLink>
           <button
             onClick={handleNavbarSave}
             disabled={isSavingNavbar}
