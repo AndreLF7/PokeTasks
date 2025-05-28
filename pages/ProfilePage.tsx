@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
+import Modal from '../components/Modal'; // Import Modal
 import {
     POKEMON_MASTER_LIST,
     LEVEL_THRESHOLDS,
@@ -10,8 +11,8 @@ import {
 interface LevelInfo {
   level: number;
   xpToNextLevelDisplay: string;
-  currentXPInLevelDisplay: number; 
-  totalXPForThisLevelSpanDisplay: number; 
+  currentXPInLevelDisplay: number;
+  totalXPForThisLevelSpanDisplay: number;
   xpProgressPercent: number;
   isMaxLevel: boolean;
 }
@@ -31,12 +32,12 @@ const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
   const xpForCurrentLevelStart = LEVEL_THRESHOLDS[currentLevel - 1];
 
   let xpToNextLevelDisplay = "N/A";
-  let currentXPInLevelDisplay = 0; 
-  let totalXPForThisLevelSpanDisplay = 0; 
+  let currentXPInLevelDisplay = 0;
+  let totalXPForThisLevelSpanDisplay = 0;
   let xpProgressPercent = 100;
 
   if (!isMaxLevel) {
-    const xpForNextLevelStart = LEVEL_THRESHOLDS[currentLevel]; 
+    const xpForNextLevelStart = LEVEL_THRESHOLDS[currentLevel];
     totalXPForThisLevelSpanDisplay = xpForNextLevelStart - xpForCurrentLevelStart;
     currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
     const xpRemainingForNextLevel = totalXPForThisLevelSpanDisplay - currentXPInLevelDisplay;
@@ -45,7 +46,7 @@ const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
     xpProgressPercent = Math.max(0, Math.min(xpProgressPercent, 100));
   } else {
     currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
-    totalXPForThisLevelSpanDisplay = currentXPInLevelDisplay; 
+    totalXPForThisLevelSpanDisplay = currentXPInLevelDisplay;
     xpProgressPercent = 100;
     xpToNextLevelDisplay = "MAX";
   }
@@ -66,6 +67,8 @@ const ProfilePage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [cloudMessage, setCloudMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [isReloadConfirmModalOpen, setIsReloadConfirmModalOpen] = useState(false);
+
 
   if (!currentUser) {
     return (
@@ -76,7 +79,7 @@ const ProfilePage: React.FC = () => {
   }
 
   const { username, caughtPokemon, pokeBalls, greatBalls, ultraBalls, masterBalls, habits, experiencePoints, dailyStreak, dailyCompletions } = currentUser;
-  
+
   const totalPokemonCaught = caughtPokemon.length;
   const uniquePokemonSpeciesCaught = new Set(caughtPokemon.map(p => p.id)).size;
   const totalHabits = habits.length;
@@ -93,14 +96,24 @@ const ProfilePage: React.FC = () => {
     setTimeout(() => setCloudMessage(null), 5000);
   };
 
-  const handleLoadFromCloud = async () => {
+  const openReloadConfirmModal = () => {
+    setIsReloadConfirmModalOpen(true);
+  };
+
+  const closeReloadConfirmModal = () => {
+    setIsReloadConfirmModalOpen(false);
+  };
+
+  const handleConfirmReloadFromCloud = async () => {
+    closeReloadConfirmModal();
     setIsLoadingCloud(true);
     setCloudMessage(null);
-    const result = await loadProfileFromCloud();
+    const result = await loadProfileFromCloud(); // Uses current user's username by default
     setCloudMessage({ text: result.message, type: result.success ? 'success' : 'error' });
     setIsLoadingCloud(false);
     setTimeout(() => setCloudMessage(null), 5000);
   };
+
 
   return (
     <div className="space-y-8 p-4 sm:p-6 md:p-8 bg-slate-900 min-h-screen">
@@ -119,15 +132,15 @@ const ProfilePage: React.FC = () => {
             className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
             aria-live="polite"
           >
-            {isSaving ? 'Salvando...' : 'Salvar na Nuvem'}
+            {isSaving ? 'Salvando...' : 'Salvar'}
           </button>
           <button
-            onClick={handleLoadFromCloud}
+            onClick={openReloadConfirmModal}
             disabled={isSaving || isLoadingCloud}
             className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
             aria-live="polite"
           >
-            {isLoadingCloud ? 'Carregando...' : 'Carregar da Nuvem'}
+            {isLoadingCloud ? 'Recarregando...' : 'Recarregar informações de Treinador'}
           </button>
         </div>
         {cloudMessage && (
@@ -138,7 +151,7 @@ const ProfilePage: React.FC = () => {
           </p>
         )}
          <p className="text-xs text-slate-400 mt-3 text-center">
-            Salve seus dados na nuvem para acessá-los em outros dispositivos. Carregar da nuvem substituirá seus dados locais atuais.
+            Salvar seus dados na nuvem permite acessá-los em outros dispositivos. Recarregar da nuvem substituirá seus dados locais não salvos.
         </p>
       </section>
 
@@ -194,7 +207,7 @@ const ProfilePage: React.FC = () => {
             <li><strong className="text-slate-100">Master Balls:</strong> {masterBalls}</li>
           </ul>
         </div>
-        
+
         <div className="bg-slate-800 p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow">
           <h3 className="text-xl font-semibold text-yellow-400 mb-3">Estatísticas de Hábitos</h3>
           <ul className="space-y-2 text-slate-300">
@@ -205,6 +218,29 @@ const ProfilePage: React.FC = () => {
           </ul>
         </div>
       </section>
+
+      {/* Confirmation Modal for Reload */}
+      <Modal isOpen={isReloadConfirmModalOpen} onClose={closeReloadConfirmModal} title="Confirmar Recarga">
+        <div className="text-center">
+          <p className="text-lg text-slate-300 mb-6">
+            ATENÇÃO! Se você recarregar as informações de treinador, perderá tudo que não foi salvo até aqui. Tem certeza que deseja prosseguir?
+          </p>
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={handleConfirmReloadFromCloud}
+              className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-semibold py-2 px-6 rounded-lg transition-colors"
+            >
+              Prosseguir
+            </button>
+            <button
+              onClick={closeReloadConfirmModal}
+              className="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
