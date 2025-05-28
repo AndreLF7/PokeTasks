@@ -12,10 +12,6 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.0",
-    "@/contexts/UserContext": "latest",
-    "@/pages/BallOddsPage": "latest",
-    "@/pages/StatsPage": "latest",
-    "@/pages/ProfilePage": "latest",
     "mongoose": "^8.15.1"
   },
   "devDependencies": {
