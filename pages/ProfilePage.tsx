@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
 import {
     POKEMON_MASTER_LIST,
@@ -10,19 +10,14 @@ import {
 interface LevelInfo {
   level: number;
   xpToNextLevelDisplay: string;
-  currentXPInLevelDisplay: number; // XP accumulated within the current level's range
-  totalXPForThisLevelSpanDisplay: number; // Total XP required to pass the current level
+  currentXPInLevelDisplay: number; 
+  totalXPForThisLevelSpanDisplay: number; 
   xpProgressPercent: number;
   isMaxLevel: boolean;
 }
 
-// Function to calculate player level and XP progress
 const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
   let currentLevel = 1;
-  // LEVEL_THRESHOLDS[0] is 0 XP (for level 1 start)
-  // LEVEL_THRESHOLDS[i] is the XP required to reach level i+1.
-  // So, if totalXP >= LEVEL_THRESHOLDS[i], player is at least level i+1.
-
   for (let i = 1; i < LEVEL_THRESHOLDS.length; i++) {
     if (totalXP >= LEVEL_THRESHOLDS[i]) {
       currentLevel = i + 1;
@@ -33,7 +28,6 @@ const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
   currentLevel = Math.min(currentLevel, MAX_PLAYER_LEVEL);
 
   const isMaxLevel = currentLevel === MAX_PLAYER_LEVEL;
-  
   const xpForCurrentLevelStart = LEVEL_THRESHOLDS[currentLevel - 1];
 
   let xpToNextLevelDisplay = "N/A";
@@ -43,18 +37,15 @@ const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
 
   if (!isMaxLevel) {
     const xpForNextLevelStart = LEVEL_THRESHOLDS[currentLevel]; 
-    
     totalXPForThisLevelSpanDisplay = xpForNextLevelStart - xpForCurrentLevelStart;
     currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
-    
     const xpRemainingForNextLevel = totalXPForThisLevelSpanDisplay - currentXPInLevelDisplay;
     xpToNextLevelDisplay = xpRemainingForNextLevel.toLocaleString('pt-BR');
-    
     xpProgressPercent = totalXPForThisLevelSpanDisplay > 0 ? (currentXPInLevelDisplay / totalXPForThisLevelSpanDisplay) * 100 : 100;
     xpProgressPercent = Math.max(0, Math.min(xpProgressPercent, 100));
   } else {
     currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
-    totalXPForThisLevelSpanDisplay = currentXPInLevelDisplay; // Or could be 0, effectively making progress bar full.
+    totalXPForThisLevelSpanDisplay = currentXPInLevelDisplay; 
     xpProgressPercent = 100;
     xpToNextLevelDisplay = "MAX";
   }
@@ -71,7 +62,10 @@ const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
 
 
 const ProfilePage: React.FC = () => {
-  const { currentUser } = useUser();
+  const { currentUser, saveProfileToCloud, loadProfileFromCloud } = useUser();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingCloud, setIsLoadingCloud] = useState(false);
+  const [cloudMessage, setCloudMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   if (!currentUser) {
     return (
@@ -90,6 +84,23 @@ const ProfilePage: React.FC = () => {
 
   const levelInfo = calculatePlayerLevelInfo(experiencePoints);
 
+  const handleSaveToCloud = async () => {
+    setIsSaving(true);
+    setCloudMessage(null);
+    const result = await saveProfileToCloud();
+    setCloudMessage({ text: result.message, type: result.success ? 'success' : 'error' });
+    setIsSaving(false);
+    setTimeout(() => setCloudMessage(null), 5000);
+  };
+
+  const handleLoadFromCloud = async () => {
+    setIsLoadingCloud(true);
+    setCloudMessage(null);
+    const result = await loadProfileFromCloud();
+    setCloudMessage({ text: result.message, type: result.success ? 'success' : 'error' });
+    setIsLoadingCloud(false);
+    setTimeout(() => setCloudMessage(null), 5000);
+  };
 
   return (
     <div className="space-y-8 p-4 sm:p-6 md:p-8 bg-slate-900 min-h-screen">
@@ -97,6 +108,39 @@ const ProfilePage: React.FC = () => {
         <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">Perfil do Treinador</h1>
         <p className="text-2xl sm:text-3xl text-slate-200 mt-2">{username}</p>
       </header>
+
+      {/* Cloud Sync Section */}
+      <section aria-labelledby="cloud-sync-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
+        <h2 id="cloud-sync-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-4 text-center">Sincronização com a Nuvem</h2>
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+          <button
+            onClick={handleSaveToCloud}
+            disabled={isSaving || isLoadingCloud}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+            aria-live="polite"
+          >
+            {isSaving ? 'Salvando...' : 'Salvar na Nuvem'}
+          </button>
+          <button
+            onClick={handleLoadFromCloud}
+            disabled={isSaving || isLoadingCloud}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+            aria-live="polite"
+          >
+            {isLoadingCloud ? 'Carregando...' : 'Carregar da Nuvem'}
+          </button>
+        </div>
+        {cloudMessage && (
+          <p className={`mt-4 text-center text-sm p-3 rounded-md ${cloudMessage.type === 'success' ? 'bg-green-700 text-green-100' : 'bg-red-700 text-red-100'}`}
+             role="alert"
+          >
+            {cloudMessage.text}
+          </p>
+        )}
+         <p className="text-xs text-slate-400 mt-3 text-center">
+            Salve seus dados na nuvem para acessá-los em outros dispositivos. Carregar da nuvem substituirá seus dados locais atuais.
+        </p>
+      </section>
 
       {/* XP and Level Section */}
       <section aria-labelledby="xp-level-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
@@ -133,7 +177,6 @@ const ProfilePage: React.FC = () => {
       {/* General Stats Section */}
       <section aria-labelledby="general-stats-heading" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <h2 id="general-stats-heading" className="sr-only">Estatísticas Gerais</h2>
-        {/* Pokémon Stats */}
         <div className="bg-slate-800 p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow">
           <h3 className="text-xl font-semibold text-yellow-400 mb-3">Estatísticas Pokémon</h3>
           <ul className="space-y-2 text-slate-300">
@@ -142,7 +185,6 @@ const ProfilePage: React.FC = () => {
           </ul>
         </div>
 
-        {/* Ball Inventory */}
         <div className="bg-slate-800 p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow">
           <h3 className="text-xl font-semibold text-yellow-400 mb-3">Inventário de Bolas</h3>
           <ul className="space-y-2 text-slate-300">
@@ -153,7 +195,6 @@ const ProfilePage: React.FC = () => {
           </ul>
         </div>
         
-        {/* Habit Stats */}
         <div className="bg-slate-800 p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow">
           <h3 className="text-xl font-semibold text-yellow-400 mb-3">Estatísticas de Hábitos</h3>
           <ul className="space-y-2 text-slate-300">

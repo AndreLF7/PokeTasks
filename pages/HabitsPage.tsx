@@ -58,11 +58,6 @@ const HabitsPage: React.FC = () => {
   const [ballUsed, setBallUsed] = useState<BallType | null>(null);
   const [timeLeftForReset, setTimeLeftForReset] = useState<string>("Calculando...");
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatusMessage, setSaveStatusMessage] = useState<string | null>(null);
-  const [saveStatusType, setSaveStatusType] = useState<'success' | 'error' | 'info' | null>(null);
-
-
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
@@ -73,7 +68,9 @@ const HabitsPage: React.FC = () => {
       const diff = midnight.getTime() - now.getTime();
 
       if (diff <= 0) {
-        setTimeLeftForReset("00:00:00"); 
+        setTimeLeftForReset("00:00:00"); // Or "Reiniciando..."
+        // The context interval should handle the actual reset.
+        // Optionally, trigger a check here if needed, but avoid duplicate logic.
         return;
       }
 
@@ -86,58 +83,27 @@ const HabitsPage: React.FC = () => {
       );
     };
 
-    calculateTimeLeft(); 
+    calculateTimeLeft(); // Initial calculation
     const timerId = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timerId);
   }, []);
-
-  const handleSaveData = async () => {
-    if (!currentUser) {
-      setSaveStatusMessage("Nenhum usuário logado para salvar os dados.");
-      setSaveStatusType('error');
-      setTimeout(() => { setSaveStatusMessage(null); setSaveStatusType(null); }, 3000);
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveStatusMessage("Salvando dados na nuvem...");
-    setSaveStatusType('info');
-
-    try {
-      const response = await fetch('/api/habits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(currentUser),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Falha na API: ${response.status} - ${errorData}`);
-      }
-      
-      // const responseData = await response.json(); // Assuming your API might return something
-      setSaveStatusMessage("Dados salvos com sucesso na nuvem!");
-      setSaveStatusType('success');
-    } catch (error) {
-      console.error("Falha ao salvar dados:", error);
-      setSaveStatusMessage(`Erro ao salvar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Verifique o console.`);
-      setSaveStatusType('error');
-    } finally {
-      setIsSaving(false);
-      setTimeout(() => { setSaveStatusMessage(null); setSaveStatusType(null); }, 5000);
-    }
-  };
 
 
   const handleBallClick = (type: BallType) => {
     if (!currentUser) return;
     let caught: CaughtPokemon | null = null;
 
+    // Check if there's any habit with pendingRewardConfirmation
     const hasPendingReward = currentUser.habits.some(h => h.pendingRewardConfirmation);
-    
+    if (!hasPendingReward && (type === 'poke' || type === 'great' || type === 'ultra' || type === 'master')) {
+        // Allow using balls even if no specific habit reward is pending,
+        // IF the intent is that balls can be used "freely" once obtained.
+        // For now, this only proceeds if a ball is to be used.
+        // The `confirmNextPendingReward` in UserContext will only confirm if a habit IS pending.
+    }
+
+
     if (type === 'poke' && currentUser.pokeBalls > 0) {
       caught = catchFromPokeBall();
     } else if (type === 'great' && currentUser.greatBalls > 0) {
@@ -153,6 +119,21 @@ const HabitsPage: React.FC = () => {
       setRevealedPokemon(caught);
       setBallUsed(type);
       setIsModalOpen(true);
+    } else if (
+        (type === 'poke' && currentUser.pokeBalls === 0) ||
+        (type === 'great' && currentUser.greatBalls === 0) ||
+        (type === 'ultra' && currentUser.ultraBalls === 0) ||
+        (type === 'master' && currentUser.masterBalls === 0)
+    ) {
+        // alert(`Você não tem ${getTranslatedBallName(type, true)} suficientes.`);
+        // This case is handled by the UI not showing balls if count is 0.
+        // If somehow clicked, this is a fallback.
+    } else if (!hasPendingReward && (type === 'poke' || type === 'great' || type === 'ultra')) {
+      // This alert might be too intrusive if balls can be used freely.
+      // For now, we assume a pending reward is preferred to consume a ball.
+      // If no specific habit is pending, using a ball might not link to a habit completion XP.
+      // The UserContext's confirmNextPendingReward will handle this gracefully.
+      // alert("Complete um hábito primeiro para designar a recompensa!");
     }
   };
 
@@ -199,26 +180,6 @@ const HabitsPage: React.FC = () => {
           Tempo para reiniciar: <span className="font-semibold text-yellow-300 ml-1">{timeLeftForReset}</span>
         </p>
       </div>
-
-      <div className="my-6 text-center space-y-3">
-        <button
-          onClick={handleSaveData}
-          disabled={isSaving}
-          className={`w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors shadow-md ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          {isSaving ? 'Salvando na Nuvem...' : 'Salvar Dados na Nuvem'}
-        </button>
-        {saveStatusMessage && (
-          <p className={`text-sm p-2 rounded-md ${
-            saveStatusType === 'success' ? 'bg-green-500 text-white' :
-            saveStatusType === 'error' ? 'bg-red-500 text-white' :
-            'bg-slate-700 text-slate-300' // info
-          }`}>
-            {saveStatusMessage}
-          </p>
-        )}
-      </div>
-
 
       <HabitInput />
 

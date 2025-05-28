@@ -9,11 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "mogoose": "^0.0.1-security",
-    "mongoose": "^8.15.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.0"
+    "react-router-dom": "^7.6.0",
+    "@/contexts/UserContext": "latest",
+    "@/pages/BallOddsPage": "latest",
+    "@/pages/StatsPage": "latest",
+    "@/pages/ProfilePage": "latest",
+    "mongoose": "^8.15.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
