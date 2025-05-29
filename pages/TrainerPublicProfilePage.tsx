@@ -191,7 +191,13 @@ const TrainerPublicProfilePage: React.FC = () => {
             Visualizar Hábitos do Treinador
           </Link>
         ) : (
-          <p className="text-slate-400">Lamento, mas o treinador não autorizou o compartilhamento dos seus hábitos.</p>
+          <button
+            onClick={() => alert("Lamento, mas o treinador não autorizou o compartilhamento dos seus hábitos.")}
+            className="inline-block bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md opacity-60 cursor-not-allowed"
+            aria-disabled="true"
+          >
+            Visualizar Hábitos do Treinador
+          </button>
         )}
       </section>
 
