@@ -52,7 +52,16 @@ const BallIcon: React.FC<{ type: BallType; onClick?: () => void; isButton?: bool
 };
 
 const HabitsPage: React.FC = () => {
-  const { currentUser, catchFromPokeBall, catchFromGreatBall, catchFromUltraBall, catchFromMasterBall, confirmHabitCompletion, deleteHabit, toggleHabitsVisibility } = useUser();
+  const { 
+    currentUser, 
+    catchFromPokeBall, 
+    catchFromGreatBall, 
+    catchFromUltraBall, 
+    catchFromMasterBall, 
+    confirmHabitCompletion, 
+    deleteHabit,
+    toggleShareHabitsPublicly // Added function
+  } = useUser();
   const [revealedPokemon, setRevealedPokemon] = useState<CaughtPokemon | null>(null);
   const [isCatchModalOpen, setIsCatchModalOpen] = useState(false); // Renamed from isModalOpen
   const [ballUsed, setBallUsed] = useState<BallType | null>(null);
@@ -142,7 +151,7 @@ const HabitsPage: React.FC = () => {
 
   if (!currentUser) return <p className="text-center text-xl py-10">Carregando dados do usuário...</p>;
 
-  const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions, habitsPubliclyVisible } = currentUser;
+  const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions, shareHabitsPublicly } = currentUser;
   
   return (
     <div className="space-y-8">
@@ -197,21 +206,23 @@ const HabitsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="mt-6 p-4 bg-slate-800 rounded-lg shadow">
-        <h2 className="text-xl font-semibold text-yellow-400 mb-3">Configurações de Privacidade</h2>
-        <div className="flex items-center">
+      {/* Share Habits Checkbox Section */}
+      <div className="my-6 p-4 bg-slate-800 rounded-lg shadow-md">
+        <label className="flex items-center space-x-3 cursor-pointer">
           <input
             type="checkbox"
-            id="habitsVisibility"
-            checked={habitsPubliclyVisible || false}
-            onChange={toggleHabitsVisibility}
-            className="h-5 w-5 text-yellow-500 bg-slate-700 border-slate-600 rounded focus:ring-yellow-500 focus:ring-offset-slate-800 cursor-pointer"
-            aria-label="Permitir que outros usuários vejam meus hábitos"
+            checked={shareHabitsPublicly || false}
+            onChange={toggleShareHabitsPublicly}
+            className="form-checkbox h-5 w-5 text-yellow-500 bg-slate-700 border-slate-600 rounded focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-slate-800 outline-none"
+            aria-labelledby="share-habits-label"
           />
-          <label htmlFor="habitsVisibility" className="ml-3 text-slate-300 cursor-pointer">
-            Permitir que outros usuários vejam meus hábitos
-          </label>
-        </div>
+          <span id="share-habits-label" className="text-slate-300 text-sm sm:text-base">
+            Autorizo compartilhar meus hábitos com outros treinadores.
+          </span>
+        </label>
+        <p className="text-xs text-slate-400 mt-2">
+          Se marcado, outros treinadores poderão ver sua lista de hábitos (sem o status de conclusão diária) em seu perfil público.
+        </p>
       </div>
       
       {(pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0) && (

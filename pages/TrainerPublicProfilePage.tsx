@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { UserProfile, CaughtPokemon, SortOption } from '../types';
 import PokemonCard from '../components/PokemonCard';
 import { LEVEL_THRESHOLDS, MAX_PLAYER_LEVEL } from '../constants';
@@ -62,13 +62,10 @@ const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
 
 const TrainerPublicProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
-  const navigate = useNavigate();
   const [trainerProfile, setTrainerProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>(SortOption.DATE_DESC);
-  const [habitsMessage, setHabitsMessage] = useState<string | null>(null);
-
 
   useEffect(() => {
     const fetchTrainerProfile = async () => {
@@ -79,7 +76,6 @@ const TrainerPublicProfilePage: React.FC = () => {
       }
       setIsLoading(true);
       setError(null);
-      setHabitsMessage(null);
       try {
         const response = await fetch(`/api/habits?username=${encodeURIComponent(username)}`);
         if (!response.ok) {
@@ -121,13 +117,6 @@ const TrainerPublicProfilePage: React.FC = () => {
         return pokemonList.sort((a, b) => new Date(b.caughtDate).getTime() - new Date(a.caughtDate).getTime());
     }
   }, [trainerProfile, sortOption]);
-
-  useEffect(() => {
-    if (habitsMessage) {
-      const timer = setTimeout(() => setHabitsMessage(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [habitsMessage]);
 
   if (isLoading) {
     return (
@@ -191,33 +180,20 @@ const TrainerPublicProfilePage: React.FC = () => {
             </div>
         </div>
       </header>
-      
-      <div className="text-center mb-6">
-        {trainerProfile.habitsPubliclyVisible ? (
-          <button
-            onClick={() => navigate(`/trainer/${encodeURIComponent(username!)}/habits`)}
-            className="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-5 rounded-lg transition-colors shadow-md"
-          >
-            Ver Hábitos do Treinador
-          </button>
-        ) : (
-          <button
-            onClick={() => setHabitsMessage("Lamento mas o treinador não deseja divulgar seus hábitos.")}
-            className="bg-slate-600 text-slate-400 font-semibold py-2 px-5 rounded-lg cursor-default shadow"
-          >
-            Ver Hábitos do Treinador (Privado)
-          </button>
-        )}
-        {habitsMessage && (
-            <p 
-                className="text-center text-sm text-slate-300 bg-slate-700 p-2 rounded-md mt-3 max-w-sm mx-auto shadow"
-                role="status"
-            >
-                {habitsMessage}
-            </p>
-        )}
-      </div>
 
+      {/* Habits Display Section */}
+      <section className="text-center my-6 p-4 bg-slate-800 rounded-lg shadow-md">
+        {trainerProfile.shareHabitsPublicly ? (
+          <Link
+            to={`/trainer/${encodeURIComponent(username!)}/habits`}
+            className="inline-block bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-md"
+          >
+            Visualizar Hábitos do Treinador
+          </Link>
+        ) : (
+          <p className="text-slate-400">Lamento, mas o treinador não autorizou o compartilhamento dos seus hábitos.</p>
+        )}
+      </section>
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
         <h2 className="text-2xl lg:text-3xl font-bold text-yellow-300">Pokémon de {trainerProfile.username} ({sortedPokemon.length})</h2>

@@ -8,7 +8,7 @@ const HabitSchema = new mongoose.Schema({
   text: String,
   completedToday: Boolean,
   rewardClaimedToday: Boolean,
-  // pendingRewardConfirmation: Boolean, // Removed
+  pendingRewardConfirmation: Boolean,
   totalCompletions: Number,
 }, { _id: false });
 
@@ -27,10 +27,6 @@ const CompletionHistorySchema = new mongoose.Schema({
   count: Number,
 }, { _id: false });
 
-// This UserProfileSchema is only used internally by this API endpoint
-// to correctly interpret data from the DB. It doesn't strictly need
-// fields not queried (like habitsPubliclyVisible) but keeping HabitSchema
-// consistent is good practice.
 const UserProfileSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, index: true },
   habits: [HabitSchema],
@@ -46,7 +42,6 @@ const UserProfileSchema = new mongoose.Schema({
   lastStreakUpdateDate: String, 
   completionHistory: [CompletionHistorySchema],
   experiencePoints: Number,
-  habitsPubliclyVisible: { type: Boolean, default: false }, // Added for schema completeness, though not directly used by this endpoint's query
 });
 
 const UserProfileModel = mongoose.models.UserProfile || mongoose.model('UserProfile', UserProfileSchema);
@@ -84,11 +79,10 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Only fetch username and caughtPokemon as that's all this endpoint needs
       const profiles = await UserProfileModel.find({}, 'username caughtPokemon').lean();
       
       const trainerRankings = profiles.map(profile => {
-        const uniquePokemonIds = new Set((profile.caughtPokemon || []).map(p => p.id));
+        const uniquePokemonIds = new Set(profile.caughtPokemon.map(p => p.id));
         return {
           username: profile.username,
           uniquePokemonCount: uniquePokemonIds.size,

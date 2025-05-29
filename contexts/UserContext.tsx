@@ -40,7 +40,7 @@ interface UserContextType {
   updateUserProfile: (profile: UserProfile) => void;
   saveProfileToCloud: () => Promise<{ success: boolean; message: string }>;
   loadProfileFromCloud: (usernameToLoad?: string) => Promise<{ success: boolean; message: string }>;
-  toggleHabitsVisibility: () => void; // Added for habits visibility
+  toggleShareHabitsPublicly: () => void; // Added function
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -199,6 +199,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               text: (typeof h.text === 'string' && h.text.trim()) ? h.text.trim() : 'Hábito Sem Nome',
               completedToday: typeof h.completedToday === 'boolean' ? h.completedToday : false,
               rewardClaimedToday: typeof h.rewardClaimedToday === 'boolean' ? h.rewardClaimedToday : false,
+              // pendingRewardConfirmation removed
               totalCompletions: parseNumericField(h.totalCompletions, 0),
           };
         })
@@ -211,8 +212,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       delete profile.avatar;
 
       profile.experiencePoints = parseNumericField(profile.experiencePoints, 0);
-      profile.habitsPubliclyVisible = typeof profile.habitsPubliclyVisible === 'boolean' ? profile.habitsPubliclyVisible : false;
-
+      profile.shareHabitsPublicly = typeof profile.shareHabitsPublicly === 'boolean' ? profile.shareHabitsPublicly : false; // Initialize shareHabitsPublicly
 
       return profile as UserProfile;
     } catch (error) {
@@ -233,7 +233,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         lastStreakUpdateDate: "",
         completionHistory: [],
         experiencePoints: 0,
-        habitsPubliclyVisible: false,
+        shareHabitsPublicly: false, // Default for error case
       };
     }
   }, []);
@@ -293,6 +293,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       ...h,
       completedToday: false,
       rewardClaimedToday: false,
+      // pendingRewardConfirmation removed
     }));
     updatedProfile.dailyCompletions = 0;
     updatedProfile.lastResetDate = todayLocalStr;
@@ -404,10 +405,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
             dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
             dailyStreak: 0, lastStreakUpdateDate: "", completionHistory: [],
-            experiencePoints: 0, habitsPubliclyVisible: false,
+            experiencePoints: 0, shareHabitsPublicly: false, // Default for new profile
           };
         } else {
           userProfileData.username = trimmedUsername;
+          // Ensure shareHabitsPublicly is set if migrating old local data
+          if (typeof userProfileData.shareHabitsPublicly !== 'boolean') {
+            userProfileData.shareHabitsPublicly = false;
+          }
         }
         
         let userProfile = initializeProfileFields(userProfileData);
@@ -798,11 +803,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   };
 
-  const toggleHabitsVisibility = () => {
+  const toggleShareHabitsPublicly = () => {
     if (!currentUser) return;
     updateUserProfile({
       ...currentUser,
-      habitsPubliclyVisible: !currentUser.habitsPubliclyVisible,
+      shareHabitsPublicly: !currentUser.shareHabitsPublicly,
     });
   };
 
@@ -824,7 +829,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       updateUserProfile,
       saveProfileToCloud,
       loadProfileFromCloud,
-      toggleHabitsVisibility,
+      toggleShareHabitsPublicly, // Expose the new function
     }}>
       {children}
     </UserContext.Provider>
