@@ -23,12 +23,12 @@ const MyPokemonPage: React.FC = () => {
 
   const sortedPokemon = useMemo(() => {
     if (!currentUser) return [];
-    const pokemonList = [...currentUser.caughtPokemon];
+    const pokemonList = [...currentUser.caughtPokemon]; // Create a shallow copy to sort
     switch (sortOption) {
       case SortOption.ID_ASC:
         return pokemonList.sort((a, b) => a.id - b.id);
       case SortOption.ID_DESC:
-        return pokemonList.sort((a, b) => b.id - b.id);
+        return pokemonList.sort((a, b) => b.id - a.id); // Correct numeric descending sort
       case SortOption.NAME_ASC:
         return pokemonList.sort((a, b) => a.name.localeCompare(b.name));
       case SortOption.NAME_DESC:

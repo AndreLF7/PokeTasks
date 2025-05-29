@@ -92,7 +92,7 @@ const RankingPage: React.FC = () => {
                     Treinador
                   </th>
                   <th scope="col" className="px-3 py-2 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-yellow-300 uppercase tracking-wider">
-                    Pokémon Únicos
+                    Pokédex
                   </th>
                 </tr>
               </thead>
