@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom'; // Import Link
 
 interface TrainerRankingInfo {
   username: string;
@@ -104,7 +105,13 @@ const RankingPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base font-medium text-slate-100">
-                      {trainer.username}
+                      <Link 
+                        to={`/trainer/${encodeURIComponent(trainer.username)}`} 
+                        className="hover:text-yellow-400 hover:underline"
+                        title={`Ver perfil de ${trainer.username}`}
+                      >
+                        {trainer.username}
+                      </Link>
                     </td>
                     <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base text-green-400 font-semibold">
                       {trainer.uniquePokemonCount}
