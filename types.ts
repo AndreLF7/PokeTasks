@@ -3,8 +3,7 @@ export interface Habit {
   id: string;
   text: string;
   completedToday: boolean;
-  rewardClaimedToday: boolean;
-  pendingRewardConfirmation: boolean; // Added to track if reward is pending confirmation by ball usage
+  rewardClaimedToday: boolean; // Signifies rewards for this completion have been processed
   totalCompletions: number; // Added to track total times this habit was confirmed
 }
 
@@ -32,10 +31,10 @@ export interface UserProfile {
   ultraBalls: number;
   masterBalls: number; // Added Master Balls
   dailyCompletions: number;
-  lastResetDate: string; // YYYY-MM-DD
+  lastResetDate: string; // YYYY-MM-DD (local)
   shinyCaughtPokemonIds: number[]; // Added to track unique shiny species caught
   dailyStreak: number; // Added for habit streak
-  lastStreakUpdateDate: string; // Added for habit streak (YYYY-MM-DD)
+  lastStreakUpdateDate: string; // Added for habit streak (YYYY-MM-DD local)
   completionHistory: { date: string; count: number }[]; // Added for daily completion log
   experiencePoints: number; // Added for player XP
 }

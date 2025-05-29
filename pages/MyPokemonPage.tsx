@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useUser } from '../contexts/UserContext';
 import PokemonCard from '../components/PokemonCard';
@@ -158,22 +159,22 @@ const MyPokemonPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-        <div>
-          <h1 className="text-4xl font-bold text-yellow-400">Minha Coleção de Pokémon</h1>
-          <p className="text-slate-300 text-lg">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex-grow">
+          <h1 className="text-3xl lg:text-4xl font-bold text-yellow-400">Minha Coleção de Pokémon</h1>
+          <p className="text-slate-300 text-base lg:text-lg">
             {isTradeMode ? "Selecione Pokémon para trocar." : "Todos os Pokémon que você capturou!"}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-4 items-center">
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-stretch md:items-center">
           {!isTradeMode && (
-            <div>
+            <div className="w-full sm:w-auto flex-grow sm:flex-grow-0">
               <label htmlFor="sort-pokemon" className="block text-sm font-medium text-slate-400 mb-1">Ordenar por:</label>
               <select
                 id="sort-pokemon"
                 value={sortOption}
                 onChange={handleSortChange}
-                className="bg-slate-700 border border-slate-600 text-slate-100 rounded-lg p-2 focus:ring-yellow-500 focus:border-yellow-500"
+                className="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg p-2 focus:ring-yellow-500 focus:border-yellow-500"
               >
                 <option value={SortOption.DATE_DESC}>Data de Captura (Mais Recentes)</option>
                 <option value={SortOption.DATE_ASC}>Data de Captura (Mais Antigos)</option>
@@ -186,7 +187,7 @@ const MyPokemonPage: React.FC = () => {
           )}
           <button
             onClick={toggleTradeMode}
-            className={`py-2 px-4 rounded-lg font-semibold transition-colors
+            className={`w-full sm:w-auto py-2 px-4 rounded-lg font-semibold transition-colors
               ${isTradeMode ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
           >
             {isTradeMode ? 'Sair do Modo de Troca' : 'Entrar no Modo de Troca'}
@@ -201,14 +202,14 @@ const MyPokemonPage: React.FC = () => {
       )}
 
       {isTradeMode && (
-        <div className="p-6 bg-slate-800 rounded-xl shadow-lg space-y-6">
-          <h2 className="text-2xl font-bold text-yellow-400">Posto de Troca Pokémon</h2>
-          <div className="p-4 bg-slate-700 rounded-lg">
-            <h3 className="text-lg font-semibold text-slate-200 mb-2">Selecionados para Troca ({selectedPokemonIds.length} no total):</h3>
+        <div className="p-4 sm:p-6 bg-slate-800 rounded-xl shadow-lg space-y-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-yellow-400">Posto de Troca Pokémon</h2>
+          <div className="p-3 sm:p-4 bg-slate-700 rounded-lg">
+            <h3 className="text-base sm:text-lg font-semibold text-slate-200 mb-2">Selecionados para Troca ({selectedPokemonIds.length} no total):</h3>
             {selectedPokemonIds.length === 0 ? (
-              <p className="text-slate-400">Nenhum Pokémon selecionado. Clique nos Pokémon abaixo para selecioná-los para uma troca.</p>
+              <p className="text-slate-400 text-sm sm:text-base">Nenhum Pokémon selecionado. Clique nos Pokémon abaixo para selecioná-los para uma troca.</p>
             ) : (
-              <ul className="list-disc list-inside text-slate-300">
+              <ul className="list-disc list-inside text-slate-300 text-sm sm:text-base">
                 {Object.entries(selectedPokemonCountsByType)
                   .filter(([_, count]) => count > 0)
                   .map(([ballType, count]) => (
@@ -227,13 +228,13 @@ const MyPokemonPage: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-slate-200">Trocas Disponíveis:</h3>
+            <h3 className="text-lg sm:text-xl font-semibold text-slate-200">Trocas Disponíveis:</h3>
             {TRADE_OFFERS.map(offer => {
               const canTrade = canExecuteTradeOffer(offer);
               return (
-                <div key={offer.id} className="p-4 bg-slate-700 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-100">{offer.description}</p>
+                <div key={offer.id} className="p-3 sm:p-4 bg-slate-700 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div className="flex-grow">
+                    <p className="font-semibold text-slate-100 text-sm sm:text-base">{offer.description}</p>
                     <p className="text-xs text-slate-400">
                       Requer: {formatTradeRequirements(offer.inputPokemon)}
                     </p>
@@ -244,7 +245,7 @@ const MyPokemonPage: React.FC = () => {
                   <button
                     onClick={() => handleOpenTradeConfirmModal(offer)}
                     disabled={!canTrade}
-                    className={`py-2 px-4 rounded-md font-semibold transition-colors
+                    className={`py-2 px-4 rounded-md font-semibold transition-colors text-sm sm:text-base w-full mt-2 sm:mt-0 sm:w-auto
                       ${canTrade ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-slate-600 text-slate-400 cursor-not-allowed'}`}
                   >
                     Realizar Troca
@@ -257,7 +258,7 @@ const MyPokemonPage: React.FC = () => {
       )}
 
       {sortedPokemon.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
           {sortedPokemon.map(pokemon => (
             <PokemonCard 
               key={pokemon.instanceId} 

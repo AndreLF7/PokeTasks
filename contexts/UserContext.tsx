@@ -24,10 +24,10 @@ import type { WeightedPokemonEntry } from '../constants'; // Changed to type-onl
 interface UserContextType {
   currentUser: UserProfile | null;
   loading: boolean;
-  login: (username: string) => Promise<{ success: boolean; message?: string }>; // Login is now async
+  login: (username: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   addHabit: (text: string) => void;
-  toggleHabit: (habitId: string) => void;
+  confirmHabitCompletion: (habitId: string) => void; // Renamed from toggleHabit
   deleteHabit: (habitId: string) => void;
   catchFromPokeBall: () => CaughtPokemon | null;
   catchFromGreatBall: () => CaughtPokemon | null;
@@ -37,14 +37,35 @@ interface UserContextType {
   tradePokemon: (selectedInstanceIds: string[], tradeId: string) => boolean;
   updateUserProfile: (profile: UserProfile) => void;
   saveProfileToCloud: () => Promise<{ success: boolean; message: string }>;
-  loadProfileFromCloud: (usernameToLoad?: string) => Promise<{ success: boolean; message: string }>; // Optional username
+  loadProfileFromCloud: (usernameToLoad?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-const getTodayDateString = (): string => new Date().toISOString().split('T')[0];
+// Generates YYYY-MM-DD string based on the client's local timezone
+const getTodayDateString = (): string => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const generateInstanceId = (): string => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const MAX_HISTORY_ENTRIES = 60; // Cap for completion history
+
+// Helper to parse YYYY-MM-DD string into a local Date object
+const parseLocalDateStr = (dateStr: string): Date => {
+  return new Date(Number(dateStr.substring(0,4)), Number(dateStr.substring(5,7))-1, Number(dateStr.substring(8,10)));
+};
+
+// Helper to format a Date object into local YYYY-MM-DD string
+const formatDateToLocalStr = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 
 interface UserProviderProps {
@@ -91,7 +112,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             typeof item.count === 'number' && !isNaN(item.count)
           )
         : []
-      ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      ).sort((a: any, b: any) => parseLocalDateStr(b.date).getTime() - parseLocalDateStr(a.date).getTime());
 
 
       profile.caughtPokemon = (Array.isArray(profile.caughtPokemon) ? profile.caughtPokemon : [])
@@ -129,7 +150,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               id: id,
               name: name,
               spriteUrl: (typeof p.spriteUrl === 'string' && p.spriteUrl) ? p.spriteUrl : spriteUrl,
-              caughtDate: (typeof p.caughtDate === 'string' && p.caughtDate) ? p.caughtDate : new Date().toISOString(),
+              caughtDate: (typeof p.caughtDate === 'string' && p.caughtDate) ? p.caughtDate : new Date().toISOString(), // Caught date still ISO UTC
               instanceId: (typeof p.instanceId === 'string' && p.instanceId) ? p.instanceId : generateInstanceId(),
               caughtWithBallType: caughtWithBallType,
               isShiny: isShiny,
@@ -155,7 +176,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               text: 'Hábito Recuperado',
               completedToday: false,
               rewardClaimedToday: false,
-              pendingRewardConfirmation: false,
               totalCompletions: 0,
             };
           }
@@ -164,7 +184,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               text: (typeof h.text === 'string' && h.text.trim()) ? h.text.trim() : 'Hábito Sem Nome',
               completedToday: typeof h.completedToday === 'boolean' ? h.completedToday : false,
               rewardClaimedToday: typeof h.rewardClaimedToday === 'boolean' ? h.rewardClaimedToday : false,
-              pendingRewardConfirmation: typeof h.pendingRewardConfirmation === 'boolean' ? h.pendingRewardConfirmation : false,
+              // pendingRewardConfirmation removed
               totalCompletions: parseNumericField(h.totalCompletions, 0),
           };
         })
@@ -172,7 +192,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       profile.lastResetDate = (typeof profile.lastResetDate === 'string' && profile.lastResetDate.match(/^\d{4}-\d{2}-\d{2}$/))
         ? profile.lastResetDate
-        : getTodayDateString();
+        : getTodayDateString(); // Use local today
 
       delete profile.avatar;
 
@@ -191,7 +211,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         ultraBalls: 0,
         masterBalls: 0,
         dailyCompletions: 0,
-        lastResetDate: getTodayDateString(),
+        lastResetDate: getTodayDateString(), // Use local today
         shinyCaughtPokemonIds: [],
         dailyStreak: 0,
         lastStreakUpdateDate: "",
@@ -202,62 +222,64 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, []);
 
   const handleDayRollover = useCallback((profile: UserProfile): UserProfile => {
-    const today = getTodayDateString();
-    if (profile.lastResetDate === today) {
+    const todayLocalStr = getTodayDateString();
+    if (profile.lastResetDate === todayLocalStr) {
       return profile;
     }
 
-    console.log(`Performing day rollover from ${profile.lastResetDate} to ${today}`);
+    console.log(`Performing day rollover from ${profile.lastResetDate} to ${todayLocalStr}`);
     let updatedProfile = { ...profile };
     const previousDayCompletions = updatedProfile.dailyCompletions;
-    const previousDayDate = updatedProfile.lastResetDate;
+    const previousDayCompletionDateStr = updatedProfile.lastResetDate; // This is a local YYYY-MM-DD string
 
-    let newHistory = [{ date: previousDayDate, count: previousDayCompletions }, ...updatedProfile.completionHistory];
+    // Update completion history
+    let newHistory = [{ date: previousDayCompletionDateStr, count: previousDayCompletions }, ...updatedProfile.completionHistory];
     if (newHistory.length > MAX_HISTORY_ENTRIES) {
       newHistory = newHistory.slice(0, MAX_HISTORY_ENTRIES);
     }
     updatedProfile.completionHistory = newHistory;
 
+    // Update daily streak
     if (previousDayCompletions > 0) {
-      const prevDayDateObj = new Date(previousDayDate);
-      const dayBeforePrevDayDateObj = new Date(prevDayDateObj);
-      dayBeforePrevDayDateObj.setDate(prevDayDateObj.getDate() - 1);
-      const dayBeforePrevDayStr = dayBeforePrevDayDateObj.toISOString().split('T')[0];
+        const prevCompletionDate = parseLocalDateStr(previousDayCompletionDateStr);
+        const dayBeforePrevCompletionDate = new Date(prevCompletionDate);
+        dayBeforePrevCompletionDate.setDate(prevCompletionDate.getDate() - 1);
+        const dayBeforePrevCompletionDateStr = formatDateToLocalStr(dayBeforePrevCompletionDate);
 
-      if (updatedProfile.lastStreakUpdateDate === dayBeforePrevDayStr) {
-        updatedProfile.dailyStreak = (updatedProfile.dailyStreak || 0) + 1;
-      } else {
-        updatedProfile.dailyStreak = 1;
-      }
-      updatedProfile.lastStreakUpdateDate = previousDayDate;
-    } else {
-      const prevDayDateObj = new Date(previousDayDate);
-      const todayDateObj = new Date(today);
-      const diffTime = Math.abs(todayDateObj.getTime() - prevDayDateObj.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      if (diffDays > 1 && updatedProfile.dailyStreak > 0) {
-        const lastStreakDateObj = new Date(updatedProfile.lastStreakUpdateDate);
-        const dayBeforePreviousDateObj = new Date(previousDayDate);
-        dayBeforePreviousDateObj.setDate(dayBeforePreviousDateObj.getDate() - 1);
-
-        if (updatedProfile.lastStreakUpdateDate !== dayBeforePreviousDateObj.toISOString().split('T')[0]) {
-           updatedProfile.dailyStreak = 0;
+        if (updatedProfile.lastStreakUpdateDate === dayBeforePrevCompletionDateStr) {
+            updatedProfile.dailyStreak = (updatedProfile.dailyStreak || 0) + 1;
+        } else {
+            updatedProfile.dailyStreak = 1; // Started a new streak
         }
-      } else if (previousDayCompletions === 0) {
-          updatedProfile.dailyStreak = 0;
-      }
-      updatedProfile.lastStreakUpdateDate = previousDayDate;
+        updatedProfile.lastStreakUpdateDate = previousDayCompletionDateStr;
+    } else { // previousDayCompletions === 0
+        const todayDate = parseLocalDateStr(todayLocalStr);
+        const prevResetDate = parseLocalDateStr(previousDayCompletionDateStr);
+        
+        const diffTime = todayDate.getTime() - prevResetDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Number of full 24h periods based on local dates
+
+        if (diffDays > 1) { // If more than one day passed since last reset and no completions on that last reset day
+            updatedProfile.dailyStreak = 0; // Streak broken
+        }
+        // If diffDays is 1, and previousDayCompletions was 0, streak is also 0.
+        // If lastStreakUpdateDate was yesterday and completions were 0, it means streak was already 0.
+        // Or, if it was a valid streak, it just means they missed previousDayCompletionDateStr
+        if (previousDayCompletions === 0) {
+             updatedProfile.dailyStreak = 0;
+        }
+        updatedProfile.lastStreakUpdateDate = previousDayCompletionDateStr; // Record this day as the last update attempt
     }
+
 
     updatedProfile.habits = updatedProfile.habits.map(h => ({
       ...h,
       completedToday: false,
       rewardClaimedToday: false,
-      pendingRewardConfirmation: false,
+      // pendingRewardConfirmation removed
     }));
     updatedProfile.dailyCompletions = 0;
-    updatedProfile.lastResetDate = today;
+    updatedProfile.lastResetDate = todayLocalStr;
 
     return updatedProfile;
   }, []);
@@ -290,8 +312,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (parsedData) {
           let initializedProfile = initializeProfileFields(parsedData);
           userProfile = handleDayRollover(initializedProfile);
-          if (userProfile.lastResetDate !== initializedProfile.lastResetDate ||
-              JSON.stringify(userProfile.habits) !== JSON.stringify(initializedProfile.habits) ) {
+          // Check if day rollover actually changed anything before re-saving
+          if (JSON.stringify(userProfile) !== JSON.stringify(initializedProfile)) {
              localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
           }
         }
@@ -321,14 +343,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (currentUser) {
-        const today = getTodayDateString();
-        if (currentUser.lastResetDate !== today) {
+        const todayLocalStr = getTodayDateString();
+        if (currentUser.lastResetDate !== todayLocalStr) {
           console.log("UserContext: Interval detected day change. Performing rollover.");
           const updatedProfile = handleDayRollover({ ...currentUser });
           updateUserProfile(updatedProfile);
         }
       }
-    }, 60000);
+    }, 60000); // Check every minute
 
     return () => clearInterval(intervalId);
   }, [currentUser, handleDayRollover, updateUserProfile]);
@@ -338,7 +360,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setLoading(true);
     const trimmedUsername = username.trim();
     try {
-      // 1. Attempt to load from cloud
       const response = await fetch(`/api/habits?username=${encodeURIComponent(trimmedUsername)}`);
       
       if (response.ok) {
@@ -356,7 +377,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setLoading(false);
         return { success: true, message: "Perfil carregado da nuvem." };
       } else if (response.status === 404) {
-        // 2. Profile not found in cloud, proceed with local creation
         console.log("UserContext: Profile not found in cloud for", trimmedUsername, ". Creating new local profile.");
         const storedUsersString = localStorage.getItem('allPokemonHabitUsers');
         const storedUsers = storedUsersString ? JSON.parse(storedUsersString) : {};
@@ -384,7 +404,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setLoading(false);
         return { success: true, message: "Novo perfil local criado." };
       } else {
-        // 3. Other API error
         const errorData = await response.json();
         throw new Error(errorData.error || `Falha ao verificar perfil na nuvem: ${response.status}`);
       }
@@ -400,8 +419,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const logout = () => {
     if (currentUser) {
       try {
-        const profileBeforeLogout = initializeProfileFields(currentUser);
+        // Ensure the profile is up-to-date with any pending day rollover before saving to 'allPokemonHabitUsers'
+        const profileBeforeLogout = initializeProfileFields(currentUser); 
         const finalProfileToSave = handleDayRollover(profileBeforeLogout);
+
 
         const storedUsersData = localStorage.getItem('allPokemonHabitUsers');
         const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : {};
@@ -420,69 +441,53 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (!currentUser || currentUser.habits.length >= MAX_HABITS) return;
     const newHabit: Habit = {
       id: generateInstanceId(), text: text.trim(),
-      completedToday: false, rewardClaimedToday: false, pendingRewardConfirmation: false,
+      completedToday: false, rewardClaimedToday: false, 
       totalCompletions: 0,
     };
     updateUserProfile({ ...currentUser, habits: [...currentUser.habits, newHabit] });
   };
 
-  const toggleHabit = (habitId: string) => {
+  const confirmHabitCompletion = (habitId: string) => {
     if (!currentUser) return;
 
     const habitIndex = currentUser.habits.findIndex(h => h.id === habitId);
     if (habitIndex === -1) return;
 
-    const updatedHabits = [...currentUser.habits];
-    const habitToToggle = { ...updatedHabits[habitIndex] };
+    const habitToConfirm = currentUser.habits[habitIndex];
+    if (habitToConfirm.completedToday) return; // Already completed and confirmed
 
-    let newPokeBalls = currentUser.pokeBalls;
+    const updatedHabits = [...currentUser.habits];
+    updatedHabits[habitIndex] = {
+      ...habitToConfirm,
+      completedToday: true,
+      rewardClaimedToday: true, // Rewards processed upon this confirmation
+      totalCompletions: (habitToConfirm.totalCompletions || 0) + 1,
+    };
+
+    let newDailyCompletions = currentUser.dailyCompletions + 1;
+    let newPokeBalls = currentUser.pokeBalls + 1;
     let newGreatBalls = currentUser.greatBalls;
     let newUltraBalls = currentUser.ultraBalls;
-    let newDailyCompletions = currentUser.dailyCompletions;
-    const previousDailyCompletionsForTierCheck = currentUser.dailyCompletions;
+    let newExperiencePoints = currentUser.experiencePoints + XP_PER_HABIT_COMPLETION;
 
-    const isChecking = !habitToToggle.completedToday;
-
-    if (isChecking) {
-      habitToToggle.completedToday = true;
-      if (!habitToToggle.rewardClaimedToday && !habitToToggle.pendingRewardConfirmation) {
-        habitToToggle.pendingRewardConfirmation = true;
-
-        newDailyCompletions++;
-        newPokeBalls++;
-        if (newDailyCompletions % 5 === 0) newGreatBalls++;
-        if (newDailyCompletions % 10 === 0) newUltraBalls++;
-      }
-    } else {
-      habitToToggle.completedToday = false;
-
-      if (habitToToggle.pendingRewardConfirmation) {
-        newDailyCompletions = Math.max(0, previousDailyCompletionsForTierCheck -1);
-
-        if (newPokeBalls > 0) newPokeBalls--;
-        if (previousDailyCompletionsForTierCheck % 5 === 0 && newGreatBalls > 0) newGreatBalls--;
-        if (previousDailyCompletionsForTierCheck % 10 === 0 && newUltraBalls > 0) newUltraBalls--;
-
-        habitToToggle.pendingRewardConfirmation = false;
-      } else if (habitToToggle.rewardClaimedToday) {
-        newDailyCompletions = Math.max(0, previousDailyCompletionsForTierCheck -1);
-      }
-    }
-
-    updatedHabits[habitIndex] = habitToToggle;
-
+    if (newDailyCompletions % 5 === 0) newGreatBalls++;
+    if (newDailyCompletions % 10 === 0) newUltraBalls++;
+    
     updateUserProfile({
       ...currentUser,
       habits: updatedHabits,
+      dailyCompletions: newDailyCompletions,
       pokeBalls: newPokeBalls,
       greatBalls: newGreatBalls,
       ultraBalls: newUltraBalls,
-      dailyCompletions: newDailyCompletions,
+      experiencePoints: newExperiencePoints,
     });
   };
 
   const deleteHabit = (habitId: string) => {
     if (!currentUser) return;
+    // If habit was completedToday, its contribution to dailyCompletions and awarded balls are NOT reverted.
+    // This is simpler and generally fine. If strict reversal is needed, more complex logic would be required.
     updateUserProfile({ ...currentUser, habits: currentUser.habits.filter(h => h.id !== habitId) });
   };
 
@@ -510,13 +515,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
 
     if (randomPokemonId === undefined) {
-        const fallback = POKEMON_MASTER_LIST.find(p => p.id === 129);
+        const fallback = POKEMON_MASTER_LIST.find(p => p.id === 129); // Magikarp
         return fallback ? { ...fallback, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallback.id), caughtWithBallType: ballUsed, name: `Erro: Grupo Vazio`, isShiny: false } : null;
     }
 
     const pokemonDetails = POKEMON_MASTER_LIST.find(p => p.id === randomPokemonId);
     if (!pokemonDetails) {
-        const fallback = POKEMON_MASTER_LIST.find(p => p.id === 1);
+        const fallback = POKEMON_MASTER_LIST.find(p => p.id === 1); // Bulbasaur
         return fallback ? { ...fallback, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallback.id), caughtWithBallType: ballUsed, name: `Erro: ID ${randomPokemonId} Inválido`, isShiny: false } : null;
     }
 
@@ -548,31 +553,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
   };
 
-  const confirmNextPendingReward = (profile: UserProfile): UserProfile => {
-    const habitsCopy = [...profile.habits];
-    let newExperiencePoints = profile.experiencePoints;
-    const habitToConfirmIndex = habitsCopy.findIndex(h => h.pendingRewardConfirmation);
-
-    if (habitToConfirmIndex !== -1) {
-      const confirmedHabit = { ...habitsCopy[habitToConfirmIndex] };
-      confirmedHabit.pendingRewardConfirmation = false;
-      confirmedHabit.rewardClaimedToday = true;
-      confirmedHabit.totalCompletions = (confirmedHabit.totalCompletions || 0) + 1;
-      newExperiencePoints += XP_PER_HABIT_COMPLETION;
-      habitsCopy[habitToConfirmIndex] = confirmedHabit;
-    }
-    return { ...profile, habits: habitsCopy, experiencePoints: newExperiencePoints };
-  };
-
   const catchFromPokeBall = (): CaughtPokemon | null => {
     if (!currentUser || currentUser.pokeBalls <= 0) return null;
     const newPokemon = _catchPokemonFromPool(POKEBALL_WEIGHTED_POOL, 'poke');
 
-    let profileAfterHabitConfirmed = confirmNextPendingReward(currentUser);
     const profileWithBallSpentAndXP: UserProfile = {
-      ...profileAfterHabitConfirmed,
-      pokeBalls: profileAfterHabitConfirmed.pokeBalls - 1,
-      experiencePoints: profileAfterHabitConfirmed.experiencePoints + XP_FROM_POKEBALL,
+      ...currentUser,
+      pokeBalls: currentUser.pokeBalls - 1,
+      experiencePoints: currentUser.experiencePoints + XP_FROM_POKEBALL,
     };
 
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
@@ -584,13 +572,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (!currentUser || currentUser.greatBalls <= 0) return null;
     const newPokemon = _catchPokemonFromPool(GREATBALL_WEIGHTED_POOL, 'great');
 
-    let profileAfterHabitConfirmed = confirmNextPendingReward(currentUser);
     const profileWithBallSpentAndXP: UserProfile = {
-      ...profileAfterHabitConfirmed,
-      greatBalls: profileAfterHabitConfirmed.greatBalls - 1,
-      experiencePoints: profileAfterHabitConfirmed.experiencePoints + XP_FROM_GREATBALL,
+      ...currentUser,
+      greatBalls: currentUser.greatBalls - 1,
+      experiencePoints: currentUser.experiencePoints + XP_FROM_GREATBALL,
     };
-
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
     return newPokemon;
@@ -599,14 +585,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const catchFromUltraBall = (): CaughtPokemon | null => {
     if (!currentUser || currentUser.ultraBalls <= 0) return null;
     const newPokemon = _catchPokemonFromPool(ULTRABALL_WEIGHTED_POOL, 'ultra');
-
-    let profileAfterHabitConfirmed = confirmNextPendingReward(currentUser);
+    
     const profileWithBallSpentAndXP: UserProfile = {
-      ...profileAfterHabitConfirmed,
-      ultraBalls: profileAfterHabitConfirmed.ultraBalls - 1,
-      experiencePoints: profileAfterHabitConfirmed.experiencePoints + XP_FROM_ULTRABALL,
+      ...currentUser,
+      ultraBalls: currentUser.ultraBalls - 1,
+      experiencePoints: currentUser.experiencePoints + XP_FROM_ULTRABALL,
     };
-
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
     return newPokemon;
@@ -616,13 +600,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (!currentUser || currentUser.masterBalls <= 0) return null;
     const newPokemon = _catchPokemonFromPool(MASTERBALL_WEIGHTED_POOL, 'master');
 
-    let profileAfterHabitConfirmed = confirmNextPendingReward(currentUser);
     const profileWithBallSpentAndXP: UserProfile = {
-      ...profileAfterHabitConfirmed,
-      masterBalls: profileAfterHabitConfirmed.masterBalls - 1,
-      experiencePoints: profileAfterHabitConfirmed.experiencePoints + XP_FROM_MASTERBALL,
+      ...currentUser,
+      masterBalls: currentUser.masterBalls - 1,
+      experiencePoints: currentUser.experiencePoints + XP_FROM_MASTERBALL,
     };
-
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
     return newPokemon;
@@ -731,12 +713,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (!effectiveUsername) {
       return { success: false, message: "Nome de usuário não encontrado para carregar o perfil." };
     }
+    setLoading(true); // Indicate loading state
     try {
       const response = await fetch(`/api/habits?username=${encodeURIComponent(effectiveUsername)}`);
       const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 404) {
+            setLoading(false);
             return { success: false, message: "Nenhum perfil encontrado na nuvem para este usuário." };
         }
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
@@ -746,17 +730,19 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       const storedUsersData = localStorage.getItem('allPokemonHabitUsers');
       const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : {};
-      storedUsers[data.username] = data;
+      storedUsers[data.username] = data; // Save raw cloud data
       localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
 
       let userProfile = initializeProfileFields(data);
-      userProfile = handleDayRollover(userProfile);
+      userProfile = handleDayRollover(userProfile); // Process day rollover for the loaded data
       setCurrentUser(userProfile);
+      setLoading(false);
 
       return { success: true, message: "Perfil carregado da nuvem com sucesso!" };
 
     } catch (error: any) {
       console.error("UserContext: Falha ao carregar perfil da nuvem:", error);
+      setLoading(false);
       return { success: false, message: error.message || "Erro ao carregar perfil da nuvem." };
     }
   };
@@ -768,7 +754,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       login,
       logout,
       addHabit,
-      toggleHabit,
+      confirmHabitCompletion,
       deleteHabit,
       catchFromPokeBall,
       catchFromGreatBall,

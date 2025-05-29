@@ -52,11 +52,16 @@ const BallIcon: React.FC<{ type: BallType; onClick?: () => void; isButton?: bool
 };
 
 const HabitsPage: React.FC = () => {
-  const { currentUser, catchFromPokeBall, catchFromGreatBall, catchFromUltraBall, catchFromMasterBall } = useUser();
+  const { currentUser, catchFromPokeBall, catchFromGreatBall, catchFromUltraBall, catchFromMasterBall, confirmHabitCompletion, deleteHabit } = useUser();
   const [revealedPokemon, setRevealedPokemon] = useState<CaughtPokemon | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCatchModalOpen, setIsCatchModalOpen] = useState(false); // Renamed from isModalOpen
   const [ballUsed, setBallUsed] = useState<BallType | null>(null);
   const [timeLeftForReset, setTimeLeftForReset] = useState<string>("Calculando...");
+
+  // State for habit confirmation modal
+  const [isHabitConfirmModalOpen, setIsHabitConfirmModalOpen] = useState(false);
+  const [habitToConfirmId, setHabitToConfirmId] = useState<string | null>(null);
+
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -68,9 +73,7 @@ const HabitsPage: React.FC = () => {
       const diff = midnight.getTime() - now.getTime();
 
       if (diff <= 0) {
-        setTimeLeftForReset("00:00:00"); // Or "Reiniciando..."
-        // The context interval should handle the actual reset.
-        // Optionally, trigger a check here if needed, but avoid duplicate logic.
+        setTimeLeftForReset("00:00:00");
         return;
       }
 
@@ -83,7 +86,7 @@ const HabitsPage: React.FC = () => {
       );
     };
 
-    calculateTimeLeft(); // Initial calculation
+    calculateTimeLeft();
     const timerId = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timerId);
@@ -93,16 +96,6 @@ const HabitsPage: React.FC = () => {
   const handleBallClick = (type: BallType) => {
     if (!currentUser) return;
     let caught: CaughtPokemon | null = null;
-
-    // Check if there's any habit with pendingRewardConfirmation
-    const hasPendingReward = currentUser.habits.some(h => h.pendingRewardConfirmation);
-    if (!hasPendingReward && (type === 'poke' || type === 'great' || type === 'ultra' || type === 'master')) {
-        // Allow using balls even if no specific habit reward is pending,
-        // IF the intent is that balls can be used "freely" once obtained.
-        // For now, this only proceeds if a ball is to be used.
-        // The `confirmNextPendingReward` in UserContext will only confirm if a habit IS pending.
-    }
-
 
     if (type === 'poke' && currentUser.pokeBalls > 0) {
       caught = catchFromPokeBall();
@@ -114,50 +107,52 @@ const HabitsPage: React.FC = () => {
       caught = catchFromMasterBall();
     }
 
-
     if (caught) {
       setRevealedPokemon(caught);
       setBallUsed(type);
-      setIsModalOpen(true);
-    } else if (
-        (type === 'poke' && currentUser.pokeBalls === 0) ||
-        (type === 'great' && currentUser.greatBalls === 0) ||
-        (type === 'ultra' && currentUser.ultraBalls === 0) ||
-        (type === 'master' && currentUser.masterBalls === 0)
-    ) {
-        // alert(`Você não tem ${getTranslatedBallName(type, true)} suficientes.`);
-        // This case is handled by the UI not showing balls if count is 0.
-        // If somehow clicked, this is a fallback.
-    } else if (!hasPendingReward && (type === 'poke' || type === 'great' || type === 'ultra')) {
-      // This alert might be too intrusive if balls can be used freely.
-      // For now, we assume a pending reward is preferred to consume a ball.
-      // If no specific habit is pending, using a ball might not link to a habit completion XP.
-      // The UserContext's confirmNextPendingReward will handle this gracefully.
-      // alert("Complete um hábito primeiro para designar a recompensa!");
+      setIsCatchModalOpen(true);
     }
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const closeCatchModal = () => {
+    setIsCatchModalOpen(false);
     setRevealedPokemon(null);
     setBallUsed(null);
   };
 
+  // Habit Confirmation Modal Logic
+  const openHabitConfirmationModal = (habitId: string) => {
+    setHabitToConfirmId(habitId);
+    setIsHabitConfirmModalOpen(true);
+  };
+
+  const handleConfirmHabitAction = () => {
+    if (habitToConfirmId) {
+      confirmHabitCompletion(habitToConfirmId);
+    }
+    setIsHabitConfirmModalOpen(false);
+    setHabitToConfirmId(null);
+  };
+
+  const handleCancelHabitConfirmation = () => {
+    setIsHabitConfirmModalOpen(false);
+    setHabitToConfirmId(null);
+  };
+
+
   if (!currentUser) return <p className="text-center text-xl py-10">Carregando dados do usuário...</p>;
 
   const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions } = currentUser;
-  const hasAnyPendingReward = habits.some(h => h.pendingRewardConfirmation);
-
-
+  
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-4xl font-bold text-yellow-400 mb-2">Hábitos Diários</h1>
         <p className="text-slate-300 text-lg">Complete hábitos para ganhar recompensas!</p>
         <ul className="text-slate-400 text-sm list-disc list-inside mt-1">
-            <li>{getTranslatedBallName('poke')}: Concedida por cada conclusão.</li>
-            <li>{getTranslatedBallName('great')}: Também concedida a cada 5ª conclusão.</li>
-            <li>{getTranslatedBallName('ultra')}: Também concedida a cada 10ª conclusão.</li>
+            <li>{getTranslatedBallName('poke')}: Concedida por cada conclusão confirmada.</li>
+            <li>{getTranslatedBallName('great')}: Também concedida a cada 5ª conclusão confirmada no dia.</li>
+            <li>{getTranslatedBallName('ultra')}: Também concedida a cada 10ª conclusão confirmada no dia.</li>
             <li>{getTranslatedBallName('master')}: Disponível apenas através de trocas especiais.</li>
         </ul>
         <div className="flex items-center mt-1">
@@ -172,7 +167,7 @@ const HabitsPage: React.FC = () => {
                 Ver Estatísticas
             </Link>
         </div>
-        <p className="text-slate-400 text-sm mt-1">Marcações e contagem de conclusões são reiniciadas diariamente à meia-noite.</p>
+        <p className="text-slate-400 text-sm mt-1">Marcações e contagem de conclusões são reiniciadas diariamente à meia-noite (horário local).</p>
         <p className="text-slate-400 text-sm mt-1 flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -186,7 +181,12 @@ const HabitsPage: React.FC = () => {
       {habits.length > 0 ? (
         <ul className="space-y-3">
           {habits.map(habit => (
-            <HabitItem key={habit.id} habit={habit} />
+            <HabitItem 
+              key={habit.id} 
+              habit={habit} 
+              onAttemptComplete={openHabitConfirmationModal}
+              onDelete={deleteHabit}
+            />
           ))}
         </ul>
       ) : (
@@ -197,12 +197,6 @@ const HabitsPage: React.FC = () => {
         </div>
       )}
       
-      {(!hasAnyPendingReward && (pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0)) && (
-        <p className="text-center text-sm text-yellow-200 bg-slate-700 p-2 rounded-md">
-          Você tem bolas não resgatadas! Complete um novo hábito ou use uma bola diretamente.
-        </p>
-      )}
-
       {(pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0) && (
         <div className="mt-10 p-6 bg-slate-800 rounded-xl shadow-lg">
           {pokeBalls > 0 && (
@@ -249,7 +243,7 @@ const HabitsPage: React.FC = () => {
             </div>
           )}
            <p className="text-sm text-slate-400 mt-4 text-center">
-            {hasAnyPendingReward ? "Clique em uma Bola para usar sua recompensa pendente e tentar capturar um Pokémon!" : "Clique em uma Bola para capturar um Pokémon!"}
+            Clique em uma Bola para capturar um Pokémon!
             </p>
         </div>
       )}
@@ -263,7 +257,7 @@ const HabitsPage: React.FC = () => {
         </Link>
       </div>
       
-      <Modal isOpen={isModalOpen} onClose={closeModal} title="Parabéns!">
+      <Modal isOpen={isCatchModalOpen} onClose={closeCatchModal} title="Parabéns!">
         {revealedPokemon && (
           <div className="text-center">
             <p className="text-lg text-slate-300 mb-1">Você usou uma {getTranslatedBallName(ballUsed)} e capturou um...</p>
@@ -272,7 +266,7 @@ const HabitsPage: React.FC = () => {
             )}
             <PokemonCard pokemon={revealedPokemon} />
             <button 
-              onClick={closeModal} 
+              onClick={closeCatchModal} 
               className="mt-6 bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-2 px-6 rounded-lg transition-colors"
             >
               Incrível!
@@ -280,6 +274,30 @@ const HabitsPage: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Habit Confirmation Modal */}
+      <Modal isOpen={isHabitConfirmModalOpen} onClose={handleCancelHabitConfirmation} title="Confirmar Hábito">
+        <div className="text-center">
+          <p className="text-lg text-slate-300 mb-6">
+            Confirmar? Você não poderá desfazer esta ação hoje!
+          </p>
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={handleConfirmHabitAction}
+              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            >
+              Confirmar
+            </button>
+            <button
+              onClick={handleCancelHabitConfirmation}
+              className="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 };

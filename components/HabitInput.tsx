@@ -26,17 +26,17 @@ const HabitInput: React.FC = () => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="my-6 flex gap-3 items-center">
+    <form onSubmit={handleSubmit} className="my-6 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
       <input
         type="text"
         value={habitText}
         onChange={(e) => setHabitText(e.target.value)}
         placeholder="Insira um novo hábito diário (Ex: Beber 8 copos de água)"
-        className="flex-grow p-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none placeholder-slate-400"
+        className="flex-grow p-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none placeholder-slate-400 w-full sm:w-auto"
       />
       <button
         type="submit"
-        className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md"
+        className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md w-full sm:w-auto"
         disabled={!habitText.trim()}
       >
         Adicionar Hábito

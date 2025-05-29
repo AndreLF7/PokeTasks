@@ -27,7 +27,7 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-slate-900 text-slate-100">
         {currentUser && <Navbar />}
-        <main className="flex-grow container mx-auto px-4 py-8">
+        <main className="flex-grow container mx-auto px-2 sm:px-4 py-8"> {/* Adjusted padding here */}
           <Routes>
             <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage />} />
             <Route path="/" element={currentUser ? <HabitsPage /> : <Navigate to="/login" />} />

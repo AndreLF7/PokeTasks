@@ -42,10 +42,10 @@ const RankingPage: React.FC = () => {
   }, []);
 
   const getRankMedal = (rank?: number) => {
-    if (rank === 1) return <span title="Ouro" role="img" aria-label="Medalha de Ouro" className="text-2xl">🥇</span>;
-    if (rank === 2) return <span title="Prata" role="img" aria-label="Medalha de Prata" className="text-2xl">🥈</span>;
-    if (rank === 3) return <span title="Bronze" role="img" aria-label="Medalha de Bronze" className="text-2xl">🥉</span>;
-    return <span className="text-slate-400 font-semibold">{rank}</span>;
+    if (rank === 1) return <span title="Ouro" role="img" aria-label="Medalha de Ouro" className="text-xl md:text-2xl">🥇</span>;
+    if (rank === 2) return <span title="Prata" role="img" aria-label="Medalha de Prata" className="text-xl md:text-2xl">🥈</span>;
+    if (rank === 3) return <span title="Bronze" role="img" aria-label="Medalha de Bronze" className="text-xl md:text-2xl">🥉</span>;
+    return <span className="text-slate-400 font-semibold text-sm md:text-base">{rank}</span>;
   };
 
   if (isLoading) {
@@ -62,7 +62,7 @@ const RankingPage: React.FC = () => {
         <p className="text-2xl text-red-400">Erro ao Carregar Ranking</p>
         <p className="text-slate-300 mt-2">{error}</p>
         <button
-          onClick={() => window.location.reload()} // Simple reload, or implement a refetch function
+          onClick={() => window.location.reload()} 
           className="mt-4 bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-semibold py-2 px-4 rounded-lg transition-colors"
         >
           Tentar Novamente
@@ -74,44 +74,46 @@ const RankingPage: React.FC = () => {
   return (
     <div className="space-y-8">
       <header className="text-center">
-        <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">Ranking dos Treinadores</h1>
-        <p className="text-slate-300 text-lg mt-2">Top 10 treinadores por espécies únicas de Pokémon capturadas.</p>
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-yellow-400">Ranking dos Treinadores</h1>
+        <p className="text-slate-300 text-base sm:text-lg mt-2">Top 10 treinadores por espécies únicas de Pokémon capturadas.</p>
       </header>
 
       {rankings.length > 0 ? (
         <div className="bg-slate-800 shadow-2xl rounded-xl overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-700">
-            <thead className="bg-slate-700">
-              <tr>
-                <th scope="col" className="px-4 py-3 sm:px-6 sm:py-4 text-left text-xs sm:text-sm font-medium text-yellow-300 uppercase tracking-wider">
-                  Rank
-                </th>
-                <th scope="col" className="px-4 py-3 sm:px-6 sm:py-4 text-left text-xs sm:text-sm font-medium text-yellow-300 uppercase tracking-wider">
-                  Treinador
-                </th>
-                <th scope="col" className="px-4 py-3 sm:px-6 sm:py-4 text-left text-xs sm:text-sm font-medium text-yellow-300 uppercase tracking-wider">
-                  Pokémon Únicos
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {rankings.map((trainer) => (
-                <tr key={trainer.username} className="hover:bg-slate-750 transition-colors">
-                  <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm sm:text-base text-slate-200">
-                    <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-600">
-                       {getRankMedal(trainer.rank)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm sm:text-base font-medium text-slate-100">
-                    {trainer.username}
-                  </td>
-                  <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm sm:text-base text-green-400 font-semibold">
-                    {trainer.uniquePokemonCount}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-700">
+              <thead className="bg-slate-700">
+                <tr>
+                  <th scope="col" className="px-3 py-2 md:px-6 md:py-4 text-center text-xs md:text-sm font-medium text-yellow-300 uppercase tracking-wider">
+                    Rank
+                  </th>
+                  <th scope="col" className="px-3 py-2 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-yellow-300 uppercase tracking-wider">
+                    Treinador
+                  </th>
+                  <th scope="col" className="px-3 py-2 md:px-6 md:py-4 text-left text-xs md:text-sm font-medium text-yellow-300 uppercase tracking-wider">
+                    Pokémon Únicos
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-700">
+                {rankings.map((trainer) => (
+                  <tr key={trainer.username} className="hover:bg-slate-750 transition-colors">
+                    <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm md:text-base text-slate-200">
+                      <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-600 mx-auto">
+                         {getRankMedal(trainer.rank)}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base font-medium text-slate-100">
+                      {trainer.username}
+                    </td>
+                    <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base text-green-400 font-semibold">
+                      {trainer.uniquePokemonCount}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-10 px-6 bg-slate-800 rounded-lg shadow">
