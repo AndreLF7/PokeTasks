@@ -37,6 +37,7 @@ export interface UserProfile {
   lastStreakUpdateDate: string; // Added for habit streak (YYYY-MM-DD local)
   completionHistory: { date: string; count: number }[]; // Added for daily completion log
   experiencePoints: number; // Added for player XP
+  habitsPubliclyVisible?: boolean; // Added for public habit sharing
 }
 
 export enum SortOption {
@@ -67,4 +68,6 @@ export interface TradeOffer {
 export interface WeightedPokemonEntry {
   id: number;
   weight: number;
+  nameOverride?: string;
+  spriteOverrideUrl?: string;
 }

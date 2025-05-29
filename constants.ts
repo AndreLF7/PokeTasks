@@ -20,12 +20,6 @@ export const XP_FROM_ULTRABALL = 40;
 export const XP_FROM_MASTERBALL = 100; // Master Balls grant significant XP
 
 // Total XP required to reach each level. Index + 1 = Level.
-// Level 1: 0 XP (implicit start)
-// Level 2: 100 XP
-// Level 3: 300 XP
-// Level 4: 600 XP
-// Level 5: 1000 XP
-// ... and so on
 export const LEVEL_THRESHOLDS: number[] = [
   0,    // Start (Level 1)
   100,  // XP for Level 2
@@ -40,6 +34,10 @@ export const LEVEL_THRESHOLDS: number[] = [
   5500  // XP for Level 11 (Example, can be extended)
 ];
 export const MAX_PLAYER_LEVEL = LEVEL_THRESHOLDS.length;
+
+// Special Pikachu (1st gen) constants
+export const PIKACHU_1ST_GEN_NAME = "Pikachu (1st gen)";
+export const PIKACHU_1ST_GEN_SPRITE_URL = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-i/red-blue/transparent/25.png";
 
 
 // Helper function for translated ball names
@@ -73,7 +71,8 @@ export const POKEBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
   { id: 19, weight: 15 },  // Rattata
   { id: 21, weight: 10 },  // Spearow
   { id: 23, weight: 10 },  // Ekans
-  { id: 25, weight: 5 },   // Pikachu
+  { id: 25, weight: 5 }, // Pikachu (Regular) - Weight changed back to 5
+  // Removed: Pikachu (1st gen) direct entry
   { id: 27, weight: 10 },  // Sandshrew
   { id: 29, weight: 10 },  // Nidoran♀
   { id: 32, weight: 10 },  // Nidoran♂
@@ -118,6 +117,29 @@ export const POKEBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
   { id: 140, weight: 2 },  // Kabuto
   { id: 138, weight: 2 },  // Omanyte
   { id: 147, weight: 1 },  // Dratini
+
+  // Added Evolved Pokémon with low weights
+  { id: 5, weight: 0.5 },    // Charmeleon
+  { id: 8, weight: 0.5 },    // Wartortle
+  { id: 2, weight: 0.5 },    // Ivysaur
+  { id: 26, weight: 0.1 },   // Raichu
+  { id: 38, weight: 0.1 },   // Ninetales
+  { id: 59, weight: 0.1 },   // Arcanine
+  { id: 11, weight: 0.1 },   // Metapod
+  { id: 14, weight: 0.1 },   // Kakuna
+  { id: 17, weight: 0.1 },   // Pidgeotto
+  { id: 20, weight: 0.1 },   // Raticate
+  { id: 22, weight: 0.1 },   // Fearow
+  { id: 24, weight: 0.1 },   // Arbok
+  { id: 30, weight: 0.1 },   // Nidorina
+  { id: 33, weight: 0.1 },   // Nidorino
+  { id: 36, weight: 0.1 },   // Clefable
+  { id: 40, weight: 0.1 },   // Wigglytuff
+  { id: 61, weight: 0.1 },   // Poliwhirl
+  { id: 64, weight: 0.1 },   // Kadabra
+  { id: 67, weight: 0.1 },   // Machoke
+  { id: 70, weight: 0.1 },   // Weepinbell
+  { id: 75, weight: 0.1 },   // Graveler
 ];
 
 export const GREATBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
@@ -199,6 +221,23 @@ export const GREATBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
   { id: 143, weight: 5 },  // Snorlax
   { id: 125, weight: 10 }, // Electabuzz
   { id: 132, weight: 10 }, // Ditto
+
+  // Added new Evolved Pokémon to Great Ball pool
+  { id: 6, weight: 0.1 },    // Charizard
+  { id: 3, weight: 0.1 },    // Venusaur
+  { id: 9, weight: 0.1 },    // Blastoise
+  { id: 15, weight: 0.5 },   // Beedrill
+  { id: 12, weight: 0.5 },   // Butterfree
+  { id: 18, weight: 0.5 },   // Pidgeot
+  { id: 34, weight: 0.1 },   // Nidoking
+  { id: 31, weight: 0.1 },   // Nidoqueen
+  { id: 45, weight: 0.1 },   // Vileplume
+  { id: 65, weight: 0.1 },   // Alakazam
+  { id: 68, weight: 0.1 },   // Machamp
+  { id: 94, weight: 0.1 },   // Gengar
+  { id: 76, weight: 0.1 },   // Golem
+  { id: 149, weight: 0.01 }, // Dragonite
+  { id: 130, weight: 0.01 }, // Gyarados
 ];
 
 export const ULTRABALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [

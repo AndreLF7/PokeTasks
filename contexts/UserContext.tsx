@@ -18,6 +18,8 @@ import {
   XP_FROM_GREATBALL,
   XP_FROM_ULTRABALL,
   XP_FROM_MASTERBALL,
+  PIKACHU_1ST_GEN_NAME, // Import new constant
+  PIKACHU_1ST_GEN_SPRITE_URL, // Import new constant
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants'; // Changed to type-only import
 
@@ -38,6 +40,7 @@ interface UserContextType {
   updateUserProfile: (profile: UserProfile) => void;
   saveProfileToCloud: () => Promise<{ success: boolean; message: string }>;
   loadProfileFromCloud: (usernameToLoad?: string) => Promise<{ success: boolean; message: string }>;
+  toggleHabitsVisibility: () => void; // Added for habits visibility
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -135,21 +138,33 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           if (id !== 0 && !name && masterEntry) {
               name = masterEntry.name;
           } else if (id === 0 || (id !== 0 && !name && !masterEntry)) {
-              return null;
+              // If name is provided but ID is weird, keep the name if it's a special variant like "Pikachu (1st gen)"
+              if (id !== 0 && name && !masterEntry) {
+                // This might be a custom named Pokémon not in master list (e.g. "Pikachu (1st gen)")
+                // We should allow it if spriteUrl is also provided.
+              } else {
+                 return null;
+              }
           }
+
 
           const validBallTypes: BallType[] = ['poke', 'great', 'ultra', 'master'];
           const caughtWithBallType: BallType = (p.caughtWithBallType && validBallTypes.includes(p.caughtWithBallType))
                                             ? p.caughtWithBallType
                                             : 'poke';
           const isShiny = typeof p.isShiny === 'boolean' ? p.isShiny : false;
-          const spriteUrl = isShiny ? POKEMON_API_SHINY_SPRITE_URL(id) : POKEMON_API_SPRITE_URL(id);
+          
+          let spriteUrl = p.spriteUrl; // Use provided spriteUrl first
+          if (!spriteUrl) { // If no spriteUrl, generate it
+            const baseSpriteId = masterEntry ? masterEntry.id : id; // Use ID from master list if available
+            spriteUrl = isShiny ? POKEMON_API_SHINY_SPRITE_URL(baseSpriteId) : POKEMON_API_SPRITE_URL(baseSpriteId);
+          }
 
 
           return {
               id: id,
               name: name,
-              spriteUrl: (typeof p.spriteUrl === 'string' && p.spriteUrl) ? p.spriteUrl : spriteUrl,
+              spriteUrl: spriteUrl,
               caughtDate: (typeof p.caughtDate === 'string' && p.caughtDate) ? p.caughtDate : new Date().toISOString(), // Caught date still ISO UTC
               instanceId: (typeof p.instanceId === 'string' && p.instanceId) ? p.instanceId : generateInstanceId(),
               caughtWithBallType: caughtWithBallType,
@@ -158,7 +173,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         })
         .filter((p: Partial<CaughtPokemon> | null): p is CaughtPokemon =>
           p !== null &&
-          p.id !== undefined && p.id !== 0 &&
+          p.id !== undefined && p.id !== 0 && // ID must be valid
           !!p.name &&
           !!p.spriteUrl &&
           !!p.caughtDate &&
@@ -184,7 +199,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               text: (typeof h.text === 'string' && h.text.trim()) ? h.text.trim() : 'Hábito Sem Nome',
               completedToday: typeof h.completedToday === 'boolean' ? h.completedToday : false,
               rewardClaimedToday: typeof h.rewardClaimedToday === 'boolean' ? h.rewardClaimedToday : false,
-              // pendingRewardConfirmation removed
               totalCompletions: parseNumericField(h.totalCompletions, 0),
           };
         })
@@ -197,6 +211,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       delete profile.avatar;
 
       profile.experiencePoints = parseNumericField(profile.experiencePoints, 0);
+      profile.habitsPubliclyVisible = typeof profile.habitsPubliclyVisible === 'boolean' ? profile.habitsPubliclyVisible : false;
+
 
       return profile as UserProfile;
     } catch (error) {
@@ -217,6 +233,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         lastStreakUpdateDate: "",
         completionHistory: [],
         experiencePoints: 0,
+        habitsPubliclyVisible: false,
       };
     }
   }, []);
@@ -276,7 +293,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       ...h,
       completedToday: false,
       rewardClaimedToday: false,
-      // pendingRewardConfirmation removed
     }));
     updatedProfile.dailyCompletions = 0;
     updatedProfile.lastResetDate = todayLocalStr;
@@ -388,7 +404,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
             dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
             dailyStreak: 0, lastStreakUpdateDate: "", completionHistory: [],
-            experiencePoints: 0,
+            experiencePoints: 0, habitsPubliclyVisible: false,
           };
         } else {
           userProfileData.username = trimmedUsername;
@@ -491,52 +507,87 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     updateUserProfile({ ...currentUser, habits: currentUser.habits.filter(h => h.id !== habitId) });
   };
 
-  const _catchPokemonFromPool = (pool: number[] | WeightedPokemonEntry[], ballUsed: BallType): CaughtPokemon | null => {
+  const _catchPokemonFromPool = (pool: WeightedPokemonEntry[], ballUsed: BallType): CaughtPokemon | null => {
     if (!pool || pool.length === 0) return null;
-    let randomPokemonId: number | undefined;
+
+    let chosenEntry: WeightedPokemonEntry | undefined;
 
     if (typeof pool[0] === 'object' && pool[0] !== null && 'weight' in pool[0]) {
       const weightedPool = pool as WeightedPokemonEntry[];
       const totalWeight = weightedPool.reduce((sum, entry) => sum + entry.weight, 0);
-      if (totalWeight <= 0) randomPokemonId = weightedPool[Math.floor(Math.random() * weightedPool.length)]?.id;
-      else {
+
+      if (totalWeight <= 0) { 
+        chosenEntry = weightedPool[Math.floor(Math.random() * weightedPool.length)];
+      } else {
         let randomValue = Math.random() * totalWeight;
         for (const entry of weightedPool) {
-          if (randomValue < entry.weight) { randomPokemonId = entry.id; break; }
+          if (randomValue < entry.weight) {
+            chosenEntry = entry;
+            break;
+          }
           randomValue -= entry.weight;
         }
-        if (randomPokemonId === undefined && weightedPool.length > 0) {
-             randomPokemonId = weightedPool[Math.floor(Math.random() * weightedPool.length)].id;
+        if (!chosenEntry && weightedPool.length > 0) {
+          chosenEntry = weightedPool[weightedPool.length -1];
         }
       }
     } else {
-      const idPool = pool as number[];
-      if (idPool.length > 0) randomPokemonId = idPool[Math.floor(Math.random() * idPool.length)];
+      const idPool = pool as unknown as number[];
+      if (idPool.length > 0) {
+        const selectedId = idPool[Math.floor(Math.random() * idPool.length)];
+        const details = POKEMON_MASTER_LIST.find(p => p.id === selectedId);
+        if (details) {
+            chosenEntry = { id: details.id, weight: 0 }; // Dummy weight
+        }
+      }
+    }
+    
+    if (!chosenEntry) {
+        const fallbackDetails = POKEMON_MASTER_LIST.find(p => p.id === 129); // Magikarp
+        if (!fallbackDetails) return null; 
+        return { ...fallbackDetails, name: `Erro: Grupo Vazio`, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallbackDetails.id), caughtWithBallType: ballUsed, isShiny: false };
     }
 
-    if (randomPokemonId === undefined) {
-        const fallback = POKEMON_MASTER_LIST.find(p => p.id === 129); // Magikarp
-        return fallback ? { ...fallback, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallback.id), caughtWithBallType: ballUsed, name: `Erro: Grupo Vazio`, isShiny: false } : null;
+    const pokemonBaseDetails = POKEMON_MASTER_LIST.find(p => p.id === chosenEntry!.id);
+    if (!pokemonBaseDetails) {
+        const fallbackDetails = POKEMON_MASTER_LIST.find(p => p.id === 1); // Bulbasaur
+        if (!fallbackDetails) return null; 
+        return { ...fallbackDetails, name: `Erro: ID ${chosenEntry!.id} Inválido`, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallbackDetails.id), caughtWithBallType: ballUsed, isShiny: false };
     }
 
-    const pokemonDetails = POKEMON_MASTER_LIST.find(p => p.id === randomPokemonId);
-    if (!pokemonDetails) {
-        const fallback = POKEMON_MASTER_LIST.find(p => p.id === 1); // Bulbasaur
-        return fallback ? { ...fallback, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallback.id), caughtWithBallType: ballUsed, name: `Erro: ID ${randomPokemonId} Inválido`, isShiny: false } : null;
-    }
+    let finalName = chosenEntry.nameOverride || pokemonBaseDetails.name;
+    let finalSpriteUrl: string;
+    let isShiny = false;
 
-    const isShiny = Math.random() < SHINY_CHANCE;
-    const spriteUrl = isShiny ? POKEMON_API_SHINY_SPRITE_URL(pokemonDetails.id) : POKEMON_API_SPRITE_URL(pokemonDetails.id);
+    if (chosenEntry.spriteOverrideUrl) {
+        // This handles Pokémon explicitly defined in the pool with an override
+        finalSpriteUrl = chosenEntry.spriteOverrideUrl;
+        isShiny = false; // Override sprites are not shiny by default
+    } else {
+        // Standard catch logic
+        isShiny = Math.random() < SHINY_CHANCE;
+        finalSpriteUrl = isShiny ? POKEMON_API_SHINY_SPRITE_URL(pokemonBaseDetails.id) : POKEMON_API_SPRITE_URL(pokemonBaseDetails.id);
+
+        // Check if it's Pikachu (ID 25) and apply 1st gen transformation
+        // This only applies if it's a regular Pikachu from the pool (no spriteOverrideUrl from chosenEntry)
+        if (pokemonBaseDetails.id === 25 && Math.random() < 0.01) { // 1% chance
+            finalName = PIKACHU_1ST_GEN_NAME;
+            finalSpriteUrl = PIKACHU_1ST_GEN_SPRITE_URL;
+            isShiny = false; // 1st gen sprite is not shiny
+        }
+    }
 
     return {
-      ...pokemonDetails,
+      id: pokemonBaseDetails.id,
+      name: finalName,
       instanceId: generateInstanceId(),
       caughtDate: new Date().toISOString(),
-      spriteUrl: spriteUrl,
+      spriteUrl: finalSpriteUrl,
       caughtWithBallType: ballUsed,
       isShiny: isShiny,
     };
   }
+
 
   const handlePokemonCatchInternal = (newPokemon: CaughtPokemon | null, profileAfterBallSpent: UserProfile) : UserProfile => {
     if (!newPokemon) return profileAfterBallSpent;
@@ -747,6 +798,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   };
 
+  const toggleHabitsVisibility = () => {
+    if (!currentUser) return;
+    updateUserProfile({
+      ...currentUser,
+      habitsPubliclyVisible: !currentUser.habitsPubliclyVisible,
+    });
+  };
+
   return (
     <UserContext.Provider value={{
       currentUser,
@@ -765,6 +824,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       updateUserProfile,
       saveProfileToCloud,
       loadProfileFromCloud,
+      toggleHabitsVisibility,
     }}>
       {children}
     </UserContext.Provider>

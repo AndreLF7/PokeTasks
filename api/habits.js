@@ -1,3 +1,4 @@
+
 // api/habits.js
 import mongoose from 'mongoose';
 
@@ -7,7 +8,7 @@ const HabitSchema = new mongoose.Schema({
   text: String,
   completedToday: Boolean,
   rewardClaimedToday: Boolean,
-  pendingRewardConfirmation: Boolean,
+  // pendingRewardConfirmation: Boolean, // Removed
   totalCompletions: Number,
 }, { _id: false });
 
@@ -41,6 +42,7 @@ const UserProfileSchema = new mongoose.Schema({
   lastStreakUpdateDate: String, 
   completionHistory: [CompletionHistorySchema],
   experiencePoints: Number,
+  habitsPubliclyVisible: { type: Boolean, default: false }, // Added
 });
 
 const UserProfileModel = mongoose.models.UserProfile || mongoose.model('UserProfile', UserProfileSchema);
@@ -84,6 +86,12 @@ export default async function handler(req, res) {
       if (!profileData || !profileData.username) {
         return res.status(400).json({ error: 'Username is required in profile data.' });
       }
+
+      // Ensure habitsPubliclyVisible defaults if not provided, though UserContext should send it.
+      if (typeof profileData.habitsPubliclyVisible === 'undefined') {
+        profileData.habitsPubliclyVisible = false;
+      }
+
 
       const updatedProfile = await UserProfileModel.findOneAndUpdate(
         { username: profileData.username },

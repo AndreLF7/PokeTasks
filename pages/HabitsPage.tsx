@@ -52,7 +52,7 @@ const BallIcon: React.FC<{ type: BallType; onClick?: () => void; isButton?: bool
 };
 
 const HabitsPage: React.FC = () => {
-  const { currentUser, catchFromPokeBall, catchFromGreatBall, catchFromUltraBall, catchFromMasterBall, confirmHabitCompletion, deleteHabit } = useUser();
+  const { currentUser, catchFromPokeBall, catchFromGreatBall, catchFromUltraBall, catchFromMasterBall, confirmHabitCompletion, deleteHabit, toggleHabitsVisibility } = useUser();
   const [revealedPokemon, setRevealedPokemon] = useState<CaughtPokemon | null>(null);
   const [isCatchModalOpen, setIsCatchModalOpen] = useState(false); // Renamed from isModalOpen
   const [ballUsed, setBallUsed] = useState<BallType | null>(null);
@@ -142,7 +142,7 @@ const HabitsPage: React.FC = () => {
 
   if (!currentUser) return <p className="text-center text-xl py-10">Carregando dados do usuário...</p>;
 
-  const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions } = currentUser;
+  const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions, habitsPubliclyVisible } = currentUser;
   
   return (
     <div className="space-y-8">
@@ -196,6 +196,23 @@ const HabitsPage: React.FC = () => {
           <p className="text-slate-500">Hora de definir algumas metas, Treinador!</p>
         </div>
       )}
+
+      <div className="mt-6 p-4 bg-slate-800 rounded-lg shadow">
+        <h2 className="text-xl font-semibold text-yellow-400 mb-3">Configurações de Privacidade</h2>
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="habitsVisibility"
+            checked={habitsPubliclyVisible || false}
+            onChange={toggleHabitsVisibility}
+            className="h-5 w-5 text-yellow-500 bg-slate-700 border-slate-600 rounded focus:ring-yellow-500 focus:ring-offset-slate-800 cursor-pointer"
+            aria-label="Permitir que outros usuários vejam meus hábitos"
+          />
+          <label htmlFor="habitsVisibility" className="ml-3 text-slate-300 cursor-pointer">
+            Permitir que outros usuários vejam meus hábitos
+          </label>
+        </div>
+      </div>
       
       {(pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0) && (
         <div className="mt-10 p-6 bg-slate-800 rounded-xl shadow-lg">
