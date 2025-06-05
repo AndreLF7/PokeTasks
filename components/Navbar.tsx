@@ -43,6 +43,7 @@ const Navbar: React.FC = () => {
             <NavLink to="/" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Hábitos</NavLink>
             <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Meus Pokémon</NavLink>
             <NavLink to="/pokedex" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Pokédex</NavLink>
+            <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Líderes</NavLink> {/* New Link */}
             <NavLink to="/ranking" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Ranking</NavLink>
             <button
               onClick={handleNavbarSave}
@@ -100,6 +101,7 @@ const Navbar: React.FC = () => {
               <NavLink to="/" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Hábitos</NavLink>
               <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Meus Pokémon</NavLink>
               <NavLink to="/pokedex" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Pokédex</NavLink>
+              <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Líderes</NavLink> {/* New Link */}
               <NavLink to="/ranking" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Ranking</NavLink>
               
               <hr className="border-slate-700 my-2"/>

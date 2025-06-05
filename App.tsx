@@ -1,21 +1,36 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Toast from './components/Toast'; // Import Toast
 import HabitsPage from './pages/HabitsPage';
 import MyPokemonPage from './pages/MyPokemonPage';
 import PokedexPage from './pages/PokedexPage';
+import BallFilteredPokedexPage from './pages/BallFilteredPokedexPage';
+import GymLeadersPage from './pages/GymLeadersPage'; // Import GymLeadersPage
 import LoginPage from './pages/LoginPage';
 import BallOddsPage from './pages/BallOddsPage';
 import StatsPage from './pages/StatsPage';
-import ProfilePage from './pages/ProfilePage'; // Import the ProfilePage
-import RankingPage from './pages/RankingPage'; // Import the RankingPage
-import TrainerPublicProfilePage from './pages/TrainerPublicProfilePage'; // Import the new TrainerPublicProfilePage
-import TrainerPublicHabitsPage from './pages/TrainerPublicHabitsPage'; // Import the new TrainerPublicHabitsPage
+import ProfilePage from './pages/ProfilePage';
+import RankingPage from './pages/RankingPage';
+import TrainerPublicProfilePage from './pages/TrainerPublicProfilePage';
+import TrainerPublicHabitsPage from './pages/TrainerPublicHabitsPage';
 import { useUser } from './contexts/UserContext';
 
 const App: React.FC = () => {
-  const { currentUser, loading } = useUser();
+  const { currentUser, loading, toastMessage, clearToastMessage } = useUser();
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (toastMessage) {
+      timer = setTimeout(() => {
+        clearToastMessage();
+      }, 5000); // Auto-dismiss after 5 seconds
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [toastMessage, clearToastMessage]);
 
   if (loading) {
     return (
@@ -29,18 +44,20 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-slate-900 text-slate-100">
         {currentUser && <Navbar />}
-        <main className="flex-grow container mx-auto px-2 sm:px-4 py-8"> {/* Adjusted padding here */}
+        <main className="flex-grow container mx-auto px-2 sm:px-4 py-8">
           <Routes>
             <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage />} />
             <Route path="/" element={currentUser ? <HabitsPage /> : <Navigate to="/login" />} />
             <Route path="/my-pokemon" element={currentUser ? <MyPokemonPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex" element={currentUser ? <PokedexPage /> : <Navigate to="/login" />} />
+            <Route path="/pokedex/:ballType" element={currentUser ? <BallFilteredPokedexPage /> : <Navigate to="/login" />} />
+            <Route path="/gym-leaders" element={currentUser ? <GymLeadersPage /> : <Navigate to="/login" />} /> {/* New Route */}
             <Route path="/ball-odds" element={currentUser ? <BallOddsPage /> : <Navigate to="/login" />} />
             <Route path="/stats" element={currentUser ? <StatsPage /> : <Navigate to="/login" />} />
             <Route path="/profile" element={currentUser ? <ProfilePage /> : <Navigate to="/login" />} />
             <Route path="/ranking" element={currentUser ? <RankingPage /> : <Navigate to="/login" />} />
             <Route path="/trainer/:username" element={currentUser ? <TrainerPublicProfilePage /> : <Navigate to="/login" />} />
-            <Route path="/trainer/:username/habits" element={currentUser ? <TrainerPublicHabitsPage /> : <Navigate to="/login" />} /> {/* Add new route for TrainerPublicHabitsPage */}
+            <Route path="/trainer/:username/habits" element={currentUser ? <TrainerPublicHabitsPage /> : <Navigate to="/login" />} />
             <Route path="*" element={<Navigate to={currentUser ? "/" : "/login"} />} />
           </Routes>
         </main>
@@ -50,6 +67,15 @@ const App: React.FC = () => {
           </footer>
         )}
       </div>
+      {toastMessage && (
+        <Toast
+          key={toastMessage.id} // Add key to ensure re-render for new messages
+          message={toastMessage.text}
+          type={toastMessage.type}
+          imageUrl={toastMessage.leaderImageUrl}
+          onClose={clearToastMessage}
+        />
+      )}
     </HashRouter>
   );
 };

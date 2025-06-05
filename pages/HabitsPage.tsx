@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
@@ -71,6 +70,8 @@ const HabitsPage: React.FC = () => {
   const [isHabitConfirmModalOpen, setIsHabitConfirmModalOpen] = useState(false);
   const [habitToConfirmId, setHabitToConfirmId] = useState<string | null>(null);
 
+  const TEST_USER_USERNAME = "Testmon";
+
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -105,14 +106,15 @@ const HabitsPage: React.FC = () => {
   const handleBallClick = (type: BallType) => {
     if (!currentUser) return;
     let caught: CaughtPokemon | null = null;
+    const isTestUser = currentUser.username === TEST_USER_USERNAME;
 
-    if (type === 'poke' && currentUser.pokeBalls > 0) {
+    if (type === 'poke' && (isTestUser || currentUser.pokeBalls > 0)) {
       caught = catchFromPokeBall();
-    } else if (type === 'great' && currentUser.greatBalls > 0) {
+    } else if (type === 'great' && (isTestUser || currentUser.greatBalls > 0)) {
       caught = catchFromGreatBall();
-    } else if (type === 'ultra' && currentUser.ultraBalls > 0) {
+    } else if (type === 'ultra' && (isTestUser || currentUser.ultraBalls > 0)) {
       caught = catchFromUltraBall();
-    } else if (type === 'master' && currentUser.masterBalls > 0) {
+    } else if (type === 'master' && currentUser.masterBalls > 0) { // Master balls always consumed
       caught = catchFromMasterBall();
     }
 
@@ -152,6 +154,7 @@ const HabitsPage: React.FC = () => {
   if (!currentUser) return <p className="text-center text-xl py-10">Carregando dados do usuário...</p>;
 
   const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions, shareHabitsPublicly } = currentUser;
+  const isTestUser = currentUser.username === TEST_USER_USERNAME;
   
   return (
     <div className="space-y-8">
@@ -225,42 +228,54 @@ const HabitsPage: React.FC = () => {
         </p>
       </div>
       
-      {(pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0) && (
+      {(isTestUser || pokeBalls > 0 || greatBalls > 0 || ultraBalls > 0 || masterBalls > 0) && (
         <div className="mt-10 p-6 bg-slate-800 rounded-xl shadow-lg">
-          {pokeBalls > 0 && (
+          {(isTestUser || pokeBalls > 0) && (
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-yellow-400 mb-3">Suas {getTranslatedBallName('poke', true)}: <span className="text-white">{pokeBalls}</span></h2>
+              <h2 className="text-2xl font-semibold text-yellow-400 mb-3">Suas {getTranslatedBallName('poke', true)}: <span className="text-white">{isTestUser ? "∞" : pokeBalls}</span></h2>
               <div className="flex flex-wrap gap-4 items-center justify-start">
-                {Array.from({ length: pokeBalls }).map((_, index) => (
-                  <BallIcon key={`poke-${index}`} type="poke" onClick={() => handleBallClick('poke')} />
-                ))}
+                {isTestUser ? (
+                  <BallIcon type="poke" onClick={() => handleBallClick('poke')} />
+                ) : (
+                  Array.from({ length: pokeBalls }).map((_, index) => (
+                    <BallIcon key={`poke-${index}`} type="poke" onClick={() => handleBallClick('poke')} />
+                  ))
+                )}
               </div>
             </div>
           )}
           
-          {greatBalls > 0 && (
+          {(isTestUser || greatBalls > 0) && (
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-yellow-400 mb-3">Suas {getTranslatedBallName('great', true)}: <span className="text-white">{greatBalls}</span></h2>
+              <h2 className="text-2xl font-semibold text-yellow-400 mb-3">Suas {getTranslatedBallName('great', true)}: <span className="text-white">{isTestUser ? "∞" : greatBalls}</span></h2>
               <div className="flex flex-wrap gap-4 items-center justify-start">
-                {Array.from({ length: greatBalls }).map((_, index) => (
-                  <BallIcon key={`great-${index}`} type="great" onClick={() => handleBallClick('great')} />
-                ))}
+                {isTestUser ? (
+                  <BallIcon type="great" onClick={() => handleBallClick('great')} />
+                ) : (
+                  Array.from({ length: greatBalls }).map((_, index) => (
+                    <BallIcon key={`great-${index}`} type="great" onClick={() => handleBallClick('great')} />
+                  ))
+                )}
               </div>
             </div>
           )}
 
-          {ultraBalls > 0 && (
+          {(isTestUser || ultraBalls > 0) && (
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-yellow-400 mb-3">Suas {getTranslatedBallName('ultra', true)}: <span className="text-white">{ultraBalls}</span></h2>
+              <h2 className="text-2xl font-semibold text-yellow-400 mb-3">Suas {getTranslatedBallName('ultra', true)}: <span className="text-white">{isTestUser ? "∞" : ultraBalls}</span></h2>
               <div className="flex flex-wrap gap-4 items-center justify-start">
-                {Array.from({ length: ultraBalls }).map((_, index) => (
-                  <BallIcon key={`ultra-${index}`} type="ultra" onClick={() => handleBallClick('ultra')} />
-                ))}
+                {isTestUser ? (
+                  <BallIcon type="ultra" onClick={() => handleBallClick('ultra')} />
+                ) : (
+                  Array.from({ length: ultraBalls }).map((_, index) => (
+                    <BallIcon key={`ultra-${index}`} type="ultra" onClick={() => handleBallClick('ultra')} />
+                  ))
+                )}
               </div>
             </div>
           )}
 
-          {masterBalls > 0 && (
+          {masterBalls > 0 && ( // Master balls are not infinite for Testmon
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-purple-400 mb-3">Suas {getTranslatedBallName('master', true)}: <span className="text-white">{masterBalls}</span></h2>
               <div className="flex flex-wrap gap-4 items-center justify-start">

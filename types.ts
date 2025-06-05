@@ -71,3 +71,19 @@ export interface WeightedPokemonEntry {
   nameOverride?: string;
   spriteOverrideUrl?: string;
 }
+
+export interface GymLeaderPokemon {
+  id: number;
+  name: string;
+}
+
+export interface GymLeader {
+  id: string;
+  name: string;
+  city: string;
+  badgeName: string;
+  pokemon: GymLeaderPokemon[];
+  imageUrl: string;
+  silhouetteUrl: string;
+  badgeUrl: string;
+}

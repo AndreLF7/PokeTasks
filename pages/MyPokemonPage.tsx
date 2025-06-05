@@ -10,6 +10,7 @@ import Modal from '../components/Modal';
 const MyPokemonPage: React.FC = () => {
   const { currentUser, releasePokemon, tradePokemon: executeTradeContext } = useUser();
   const [sortOption, setSortOption] = useState<SortOption>(SortOption.DATE_DESC);
+  const [showOnlyDuplicates, setShowOnlyDuplicates] = useState(false); // New state for duplicate filter
   
   const [pokemonToRelease, setPokemonToRelease] = useState<CaughtPokemon | null>(null);
   const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
@@ -23,23 +24,38 @@ const MyPokemonPage: React.FC = () => {
 
   const sortedPokemon = useMemo(() => {
     if (!currentUser) return [];
-    const pokemonList = [...currentUser.caughtPokemon]; // Create a shallow copy to sort
+    
+    let pokemonToDisplay = [...currentUser.caughtPokemon];
+
+    if (showOnlyDuplicates) {
+      const counts: { [key: number]: number } = {};
+      currentUser.caughtPokemon.forEach(p => {
+        counts[p.id] = (counts[p.id] || 0) + 1;
+      });
+      const duplicatedSpeciesIds = Object.keys(counts)
+        .map(Number)
+        .filter(id => counts[id] > 1);
+      
+      pokemonToDisplay = currentUser.caughtPokemon.filter(p => duplicatedSpeciesIds.includes(p.id));
+    }
+
+    // Now sort pokemonToDisplay based on sortOption
     switch (sortOption) {
       case SortOption.ID_ASC:
-        return pokemonList.sort((a, b) => a.id - b.id);
+        return pokemonToDisplay.sort((a, b) => a.id - b.id);
       case SortOption.ID_DESC:
-        return pokemonList.sort((a, b) => b.id - a.id); // Correct numeric descending sort
+        return pokemonToDisplay.sort((a, b) => b.id - a.id);
       case SortOption.NAME_ASC:
-        return pokemonList.sort((a, b) => a.name.localeCompare(b.name));
+        return pokemonToDisplay.sort((a, b) => a.name.localeCompare(b.name));
       case SortOption.NAME_DESC:
-        return pokemonList.sort((a, b) => b.name.localeCompare(a.name));
+        return pokemonToDisplay.sort((a, b) => b.name.localeCompare(a.name));
       case SortOption.DATE_ASC:
-        return pokemonList.sort((a, b) => new Date(a.caughtDate).getTime() - new Date(b.caughtDate).getTime());
+        return pokemonToDisplay.sort((a, b) => new Date(a.caughtDate).getTime() - new Date(b.caughtDate).getTime());
       case SortOption.DATE_DESC:
       default:
-        return pokemonList.sort((a, b) => new Date(b.caughtDate).getTime() - new Date(a.caughtDate).getTime());
+        return pokemonToDisplay.sort((a, b) => new Date(b.caughtDate).getTime() - new Date(a.caughtDate).getTime());
     }
-  }, [currentUser, sortOption]);
+  }, [currentUser, sortOption, showOnlyDuplicates]);
 
   const selectedPokemonDetails = useMemo(() => {
     if (!currentUser) return [];
@@ -47,7 +63,7 @@ const MyPokemonPage: React.FC = () => {
   }, [currentUser, selectedPokemonIds]);
 
   const selectedPokemonCountsByType = useMemo(() => {
-    const counts: Record<string, number> = { poke: 0, great: 0, ultra: 0, master: 0 }; // Use string for BallType keys
+    const counts: Record<string, number> = { poke: 0, great: 0, ultra: 0, master: 0 }; 
     selectedPokemonDetails.forEach(p => {
       counts[p.caughtWithBallType] = (counts[p.caughtWithBallType] || 0) + 1;
     });
@@ -67,7 +83,6 @@ const MyPokemonPage: React.FC = () => {
     setSortOption(e.target.value as SortOption);
   };
 
-  // Release Pokemon Logic
   const handleOpenReleaseModal = (pokemon: CaughtPokemon) => {
     if (isTradeMode) return; 
     setPokemonToRelease(pokemon);
@@ -88,7 +103,6 @@ const MyPokemonPage: React.FC = () => {
     setPokemonToRelease(null);
   };
 
-  // Trade Pokemon Logic
   const toggleTradeMode = () => {
     setIsTradeMode(!isTradeMode);
     setSelectedPokemonIds([]); 
@@ -156,7 +170,6 @@ const MyPokemonPage: React.FC = () => {
     return details || "Nenhum correspondendo aos requisitos";
   };
 
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -168,26 +181,40 @@ const MyPokemonPage: React.FC = () => {
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-stretch md:items-center">
           {!isTradeMode && (
-            <div className="w-full sm:w-auto flex-grow sm:flex-grow-0">
-              <label htmlFor="sort-pokemon" className="block text-sm font-medium text-slate-400 mb-1">Ordenar por:</label>
-              <select
-                id="sort-pokemon"
-                value={sortOption}
-                onChange={handleSortChange}
-                className="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg p-2 focus:ring-yellow-500 focus:border-yellow-500"
-              >
-                <option value={SortOption.DATE_DESC}>Data de Captura (Mais Recentes)</option>
-                <option value={SortOption.DATE_ASC}>Data de Captura (Mais Antigos)</option>
-                <option value={SortOption.ID_ASC}>ID (Crescente)</option>
-                <option value={SortOption.ID_DESC}>ID (Decrescente)</option>
-                <option value={SortOption.NAME_ASC}>Nome (A-Z)</option>
-                <option value={SortOption.NAME_DESC}>Nome (Z-A)</option>
-              </select>
-            </div>
+            <>
+              <div className="w-full sm:w-auto flex-grow sm:flex-grow-0">
+                <label htmlFor="sort-pokemon" className="block text-sm font-medium text-slate-400 mb-1">Ordenar por:</label>
+                <select
+                  id="sort-pokemon"
+                  value={sortOption}
+                  onChange={handleSortChange}
+                  className="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg p-2 focus:ring-yellow-500 focus:border-yellow-500"
+                >
+                  <option value={SortOption.DATE_DESC}>Data de Captura (Mais Recentes)</option>
+                  <option value={SortOption.DATE_ASC}>Data de Captura (Mais Antigos)</option>
+                  <option value={SortOption.ID_ASC}>ID (Crescente)</option>
+                  <option value={SortOption.ID_DESC}>ID (Decrescente)</option>
+                  <option value={SortOption.NAME_ASC}>Nome (A-Z)</option>
+                  <option value={SortOption.NAME_DESC}>Nome (Z-A)</option>
+                </select>
+              </div>
+              <div className="w-full sm:w-auto flex items-center mt-2 sm:mt-0 sm:self-end">
+                <input
+                  type="checkbox"
+                  id="show-duplicates"
+                  checked={showOnlyDuplicates}
+                  onChange={(e) => setShowOnlyDuplicates(e.target.checked)}
+                  className="h-5 w-5 text-yellow-500 bg-slate-600 border-slate-500 rounded focus:ring-yellow-500 focus:ring-offset-slate-800 mr-2"
+                />
+                <label htmlFor="show-duplicates" className="text-sm text-slate-300 cursor-pointer">
+                  Mostrar somente repetidos
+                </label>
+              </div>
+            </>
           )}
           <button
             onClick={toggleTradeMode}
-            className={`w-full sm:w-auto py-2 px-4 rounded-lg font-semibold transition-colors
+            className={`w-full sm:w-auto py-2 px-4 rounded-lg font-semibold transition-colors self-start sm:self-auto mt-2 sm:mt-0
               ${isTradeMode ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
           >
             {isTradeMode ? 'Sair do Modo de Troca' : 'Entrar no Modo de Troca'}
@@ -278,8 +305,10 @@ const MyPokemonPage: React.FC = () => {
             alt="Premier Ball Vazia" 
             className="mx-auto mb-4 rounded-md w-24 h-24 filter grayscale opacity-60" 
           />
-          <p className="text-xl text-slate-400">Sua coleção de Pokémon está vazia.</p>
-          <p className="text-slate-500">Complete hábitos para ganhar Poké Bolas e capturar alguns Pokémon!</p>
+          <p className="text-xl text-slate-400">
+            {showOnlyDuplicates ? "Nenhum Pokémon repetido encontrado." : "Sua coleção de Pokémon está vazia."}
+          </p>
+          {!showOnlyDuplicates && <p className="text-slate-500">Complete hábitos para ganhar Poké Bolas e capturar alguns Pokémon!</p>}
         </div>
       )}
 

@@ -1,12 +1,13 @@
 
-import { PokemonBase, TradeOffer, BallType, WeightedPokemonEntry } from './types';
+import { PokemonBase, TradeOffer, BallType, WeightedPokemonEntry, GymLeader } from './types';
 
 // FIX: Re-export WeightedPokemonEntry so other modules importing from constants.ts can access it
-export type { WeightedPokemonEntry };
+export type { WeightedPokemonEntry, GymLeader };
 
 export const MAX_HABITS = 10;
 export const POKEMON_API_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 export const POKEMON_API_SHINY_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`;
+export const POKEMON_API_MINI_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; // For smaller sprites
 
 export const SHINY_CHANCE = 0.001; // 0.1% chance
 
@@ -45,7 +46,7 @@ export const getTranslatedBallName = (type: BallType | null, plural: boolean = f
   if (!type) return '';
   switch (type) {
     case 'poke':
-      return plural ? 'Poké Bolas' : 'Poké Bola';
+      return plural ? 'Poké Balls' : 'Poké Ball';
     case 'great':
       return 'Great Ball' + (plural ? 's' : ''); // Commonly kept in English
     case 'ultra':
@@ -238,6 +239,8 @@ export const GREATBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
   { id: 76, weight: 0.1 },   // Golem
   { id: 149, weight: 0.01 }, // Dragonite
   { id: 130, weight: 0.01 }, // Gyarados
+  { id: 62, weight: 0.1 },   // Poliwrath
+  { id: 71, weight: 0.1 },   // Victreebel
 ];
 
 export const ULTRABALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
@@ -256,6 +259,8 @@ export const ULTRABALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
   { id: 76, weight: 10 }, // Golem
   { id: 149, weight: 1 }, // Dragonite
   { id: 130, weight: 3 }, // Gyarados
+  { id: 62, weight: 10 },  // Poliwrath
+  { id: 71, weight: 10 },  // Victreebel
 ];
 
 export const MASTERBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
@@ -363,4 +368,106 @@ export const POKEMON_MASTER_LIST: PokemonBase[] = [
   { id: 145, name: 'Zapdos' }, { id: 146, name: 'Moltres' }, { id: 147, name: 'Dratini' },
   { id: 148, name: 'Dragonair' }, { id: 149, name: 'Dragonite' }, { id: 150, name: 'Mewtwo' },
   { id: 151, name: 'Mew' }
+];
+
+const BROCK_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/brock.png';
+const MISTY_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/misty.png';
+const LTSURGE_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/ltsurge.png';
+const ERIKA_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/erika.png';
+const KOGA_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/koga.png';
+const SABRINA_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/sabrina.png';
+const BLAINE_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/blaine.png';
+const GIOVANNI_IMG = 'https://play.pokemonshowdown.com/sprites/trainers/giovanni.png';
+
+const BOULDER_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/boulder.png';
+const CASCADE_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/cascade.png';
+const THUNDER_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/thunder.png';
+const RAINBOW_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/rainbow.png';
+const SOUL_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/soul.png';
+const MARSH_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/marsh.png';
+const VOLCANO_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/volcano.png';
+const EARTH_BADGE = 'https://raw.githubusercontent.com/msikma/pokesprite/master/items/badge/earth.png';
+
+
+export const GYM_LEADERS: GymLeader[] = [
+  {
+    id: 'brock',
+    name: 'Brock',
+    city: 'Pewter City',
+    badgeName: 'Boulder Badge',
+    pokemon: [ { id: 74, name: 'Geodude' }, { id: 95, name: 'Onix' } ],
+    imageUrl: BROCK_IMG,
+    silhouetteUrl: BROCK_IMG, // Will be filtered by CSS
+    badgeUrl: BOULDER_BADGE
+  },
+  {
+    id: 'misty',
+    name: 'Misty',
+    city: 'Cerulean City',
+    badgeName: 'Cascade Badge',
+    pokemon: [ { id: 120, name: 'Staryu' }, { id: 121, name: 'Starmie' } ],
+    imageUrl: MISTY_IMG,
+    silhouetteUrl: MISTY_IMG,
+    badgeUrl: CASCADE_BADGE
+  },
+  {
+    id: 'lt_surge',
+    name: 'Lt. Surge',
+    city: 'Vermilion City',
+    badgeName: 'Thunder Badge',
+    pokemon: [ { id: 100, name: 'Voltorb' }, { id: 25, name: 'Pikachu' }, { id: 26, name: 'Raichu' } ],
+    imageUrl: LTSURGE_IMG,
+    silhouetteUrl: LTSURGE_IMG,
+    badgeUrl: THUNDER_BADGE
+  },
+  {
+    id: 'erika',
+    name: 'Erika',
+    city: 'Celadon City',
+    badgeName: 'Rainbow Badge',
+    pokemon: [ { id: 71, name: 'Victreebel' }, { id: 114, name: 'Tangela' }, { id: 45, name: 'Vileplume' } ],
+    imageUrl: ERIKA_IMG,
+    silhouetteUrl: ERIKA_IMG,
+    badgeUrl: RAINBOW_BADGE
+  },
+  {
+    id: 'koga',
+    name: 'Koga',
+    city: 'Fuchsia City',
+    badgeName: 'Soul Badge',
+    pokemon: [ { id: 109, name: 'Koffing' }, { id: 89, name: 'Muk' }, { id: 110, name: 'Weezing' } ],
+    imageUrl: KOGA_IMG,
+    silhouetteUrl: KOGA_IMG,
+    badgeUrl: SOUL_BADGE
+  },
+  {
+    id: 'sabrina',
+    name: 'Sabrina',
+    city: 'Saffron City',
+    badgeName: 'Marsh Badge',
+    pokemon: [ { id: 64, name: 'Kadabra' }, { id: 122, name: 'Mr. Mime' }, { id: 49, name: 'Venomoth' }, { id: 65, name: 'Alakazam' } ],
+    imageUrl: SABRINA_IMG,
+    silhouetteUrl: SABRINA_IMG,
+    badgeUrl: MARSH_BADGE
+  },
+  {
+    id: 'blaine',
+    name: 'Blaine',
+    city: 'Cinnabar Island',
+    badgeName: 'Volcano Badge',
+    pokemon: [ { id: 58, name: 'Growlithe' }, { id: 77, name: 'Ponyta' }, { id: 78, name: 'Rapidash' }, { id: 59, name: 'Arcanine' } ],
+    imageUrl: BLAINE_IMG,
+    silhouetteUrl: BLAINE_IMG,
+    badgeUrl: VOLCANO_BADGE
+  },
+  {
+    id: 'giovanni',
+    name: 'Giovanni',
+    city: 'Viridian City',
+    badgeName: 'Earth Badge',
+    pokemon: [ { id: 111, name: 'Rhyhorn' }, { id: 51, name: 'Dugtrio' }, { id: 31, name: 'Nidoqueen' }, { id: 34, name: 'Nidoking' }, { id: 112, name: 'Rhydon' } ],
+    imageUrl: GIOVANNI_IMG,
+    silhouetteUrl: GIOVANNI_IMG,
+    badgeUrl: EARTH_BADGE
+  }
 ];
