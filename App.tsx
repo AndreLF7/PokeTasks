@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage';
 import RankingPage from './pages/RankingPage';
 import TrainerPublicProfilePage from './pages/TrainerPublicProfilePage';
 import TrainerPublicHabitsPage from './pages/TrainerPublicHabitsPage';
+import SharedHabitsPage from './pages/SharedHabitsPage'; // Import SharedHabitsPage
 import { useUser } from './contexts/UserContext';
 
 const App: React.FC = () => {
@@ -51,7 +52,8 @@ const App: React.FC = () => {
             <Route path="/my-pokemon" element={currentUser ? <MyPokemonPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex" element={currentUser ? <PokedexPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex/:ballType" element={currentUser ? <BallFilteredPokedexPage /> : <Navigate to="/login" />} />
-            <Route path="/gym-leaders" element={currentUser ? <GymLeadersPage /> : <Navigate to="/login" />} /> {/* New Route */}
+            <Route path="/gym-leaders" element={currentUser ? <GymLeadersPage /> : <Navigate to="/login" />} />
+            <Route path="/shared-habits" element={currentUser ? <SharedHabitsPage /> : <Navigate to="/login" />} /> {/* New Route */}
             <Route path="/ball-odds" element={currentUser ? <BallOddsPage /> : <Navigate to="/login" />} />
             <Route path="/stats" element={currentUser ? <StatsPage /> : <Navigate to="/login" />} />
             <Route path="/profile" element={currentUser ? <ProfilePage /> : <Navigate to="/login" />} />

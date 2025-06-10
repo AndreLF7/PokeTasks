@@ -4,7 +4,7 @@ import { PokemonBase, TradeOffer, BallType, WeightedPokemonEntry, GymLeader } fr
 // FIX: Re-export WeightedPokemonEntry so other modules importing from constants.ts can access it
 export type { WeightedPokemonEntry, GymLeader };
 
-export const MAX_HABITS = 10;
+export const INITIAL_MAX_HABIT_SLOTS = 10;
 export const POKEMON_API_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 export const POKEMON_API_SHINY_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`;
 export const POKEMON_API_MINI_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; // For smaller sprites
@@ -35,6 +35,10 @@ export const LEVEL_THRESHOLDS: number[] = [
   5500  // XP for Level 11 (Example, can be extended)
 ];
 export const MAX_PLAYER_LEVEL = LEVEL_THRESHOLDS.length;
+
+// Shared Habit constants
+export const MIN_LEVEL_FOR_SHARED_HABITS = 3;
+export const MAX_SHARED_HABITS_PER_PARTNER = 1; // Enforced by logic, not just display
 
 // Special Pikachu (1st gen) constants
 export const PIKACHU_1ST_GEN_NAME = "Pikachu (1st gen)";

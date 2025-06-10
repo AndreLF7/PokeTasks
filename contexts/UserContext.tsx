@@ -1,12 +1,12 @@
 
 import React, { createContext, useState, useEffect, useContext, useCallback, ReactNode } from 'react';
-import { UserProfile, Habit, CaughtPokemon, BallType, TradeOffer, GymLeader } from '../types';
+import { UserProfile, Habit, CaughtPokemon, BallType, TradeOffer, GymLeader, SharedHabitDisplayInfo, SharedHabit } from '../types'; // Added SharedHabit types
 import {
   POKEMON_MASTER_LIST,
   POKEMON_API_SPRITE_URL,
   POKEMON_API_SHINY_SPRITE_URL,
   SHINY_CHANCE,
-  MAX_HABITS,
+  INITIAL_MAX_HABIT_SLOTS,
   POKEBALL_WEIGHTED_POOL,
   GREATBALL_WEIGHTED_POOL,
   ULTRABALL_WEIGHTED_POOL,
@@ -20,9 +20,30 @@ import {
   XP_FROM_MASTERBALL,
   PIKACHU_1ST_GEN_NAME,
   PIKACHU_1ST_GEN_SPRITE_URL,
-  GYM_LEADERS, // Import GYM_LEADERS
+  GYM_LEADERS,
+  LEVEL_THRESHOLDS,
+  MAX_PLAYER_LEVEL,
+  MIN_LEVEL_FOR_SHARED_HABITS, // Added for logic
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants';
+
+interface LevelInfo {
+  level: number;
+  xpToNextLevelDisplay: string;
+  currentXPInLevelDisplay: number;
+  totalXPForThisLevelSpanDisplay: number;
+  xpProgressPercent: number;
+  isMaxLevel: boolean;
+}
+
+// Structure for managing shared habits data in context
+interface SharedHabitsState {
+  active: SharedHabit[]; // Full SharedHabit objects for active ones
+  pendingInvitationsReceived: SharedHabit[]; // Full SharedHabit objects where currentUser is invitee and status is 'pending_invitee_approval'
+  pendingInvitationsSent: SharedHabit[]; // Full SharedHabit objects where currentUser is creator and status is 'pending_invitee_approval'
+  isLoading: boolean;
+  error: string | null;
+}
 
 interface UserContextType {
   currentUser: UserProfile | null;
@@ -42,8 +63,20 @@ interface UserContextType {
   saveProfileToCloud: () => Promise<{ success: boolean; message: string }>;
   loadProfileFromCloud: (usernameToLoad?: string) => Promise<{ success: boolean; message: string }>;
   toggleShareHabitsPublicly: () => void;
-  toastMessage: { id: string, text: string, type: 'info' | 'success' | 'error', leaderImageUrl?: string } | null; // Updated toastMessage structure
+  claimStreakRewards: () => void;
+  claimLevelRewards: () => void;
+  toastMessage: { id: string, text: string, type: 'info' | 'success' | 'error', leaderImageUrl?: string } | null;
   clearToastMessage: () => void;
+  setToastMessage: (text: string, type?: 'info' | 'success' | 'error', leaderImageUrl?: string) => void; // Expose setToastMessage
+  calculatePlayerLevelInfo: (totalXP: number) => LevelInfo;
+
+  // Shared Habits placeholders
+  sharedHabitsData: SharedHabitsState;
+  fetchSharedHabitsData: () => Promise<void>;
+  sendSharedHabitInvitation: (targetUsername: string, habitText: string) => Promise<{ success: boolean; message?: string }>;
+  respondToSharedHabitInvitation: (sharedHabitId: string, response: 'accept' | 'decline') => Promise<{ success: boolean; message?: string }>;
+  completeSharedHabit: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>;
+  cancelSentSharedHabitRequest: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -70,6 +103,50 @@ const formatDateToLocalStr = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const calculatePlayerLevelInfoInternal = (totalXP: number): LevelInfo => {
+  let currentLevel = 1;
+  for (let i = 1; i < LEVEL_THRESHOLDS.length; i++) {
+    if (totalXP >= LEVEL_THRESHOLDS[i]) {
+      currentLevel = i + 1;
+    } else {
+      break;
+    }
+  }
+  currentLevel = Math.min(currentLevel, MAX_PLAYER_LEVEL);
+
+  const isMaxLevel = currentLevel === MAX_PLAYER_LEVEL;
+  const xpForCurrentLevelStart = LEVEL_THRESHOLDS[currentLevel - 1];
+
+  let xpToNextLevelDisplay = "N/A";
+  let currentXPInLevelDisplay = 0;
+  let totalXPForThisLevelSpanDisplay = 0;
+  let xpProgressPercent = 100;
+
+  if (!isMaxLevel) {
+    const xpForNextLevelStart = LEVEL_THRESHOLDS[currentLevel];
+    totalXPForThisLevelSpanDisplay = xpForNextLevelStart - xpForCurrentLevelStart;
+    currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
+    const xpRemainingForNextLevel = totalXPForThisLevelSpanDisplay - currentXPInLevelDisplay;
+    xpToNextLevelDisplay = xpRemainingForNextLevel.toLocaleString('pt-BR');
+    xpProgressPercent = totalXPForThisLevelSpanDisplay > 0 ? (currentXPInLevelDisplay / totalXPForThisLevelSpanDisplay) * 100 : 100;
+    xpProgressPercent = Math.max(0, Math.min(xpProgressPercent, 100));
+  } else {
+    currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
+    totalXPForThisLevelSpanDisplay = currentXPInLevelDisplay; 
+    xpProgressPercent = 100;
+    xpToNextLevelDisplay = "MAX";
+  }
+
+  return {
+    level: currentLevel,
+    xpToNextLevelDisplay,
+    currentXPInLevelDisplay,
+    totalXPForThisLevelSpanDisplay,
+    xpProgressPercent,
+    isMaxLevel,
+  };
+};
+
 
 interface UserProviderProps {
   children: ReactNode;
@@ -80,11 +157,19 @@ const TEST_USER_USERNAME = "Testmon";
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [toastMessage, setToastMessageState] = useState<UserContextType['toastMessage']>(null); // Renamed internal state
+  const [toastMessageState, setToastMessageState] = useState<UserContextType['toastMessage']>(null);
+  
+  const [sharedHabitsData, setSharedHabitsData] = useState<SharedHabitsState>({
+    active: [],
+    pendingInvitationsReceived: [],
+    pendingInvitationsSent: [],
+    isLoading: true,
+    error: null,
+  });
 
-  const setToastMessage = (text: string, type: 'info' | 'success' | 'error' = 'info', leaderImageUrl?: string) => {
+  const setToastMessage = useCallback((text: string, type: 'info' | 'success' | 'error' = 'info', leaderImageUrl?: string) => {
     setToastMessageState({ id: Date.now().toString(), text, type, leaderImageUrl });
-  };
+  }, []);
 
   const clearToastMessage = useCallback(() => {
     setToastMessageState(null);
@@ -120,6 +205,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       profile.lastStreakUpdateDate = (typeof profile.lastStreakUpdateDate === 'string' && profile.lastStreakUpdateDate.match(/^\d{4}-\d{2}-\d{2}$/))
         ? profile.lastStreakUpdateDate
         : "";
+      profile.lastStreakDayClaimedForReward = parseNumericField(profile.lastStreakDayClaimedForReward, 0);
+      
       profile.completionHistory = (Array.isArray(profile.completionHistory)
         ? profile.completionHistory.filter((item: any) =>
             typeof item === 'object' && item !== null &&
@@ -219,6 +306,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       profile.experiencePoints = parseNumericField(profile.experiencePoints, 0);
       profile.shareHabitsPublicly = typeof profile.shareHabitsPublicly === 'boolean' ? profile.shareHabitsPublicly : false;
+      profile.lastLevelRewardClaimed = parseNumericField(profile.lastLevelRewardClaimed, 1);
+      profile.maxHabitSlots = parseNumericField(profile.maxHabitSlots, INITIAL_MAX_HABIT_SLOTS);
+
+      // Initialize Shared Habit fields
+      profile.sharedHabitStreaks = (typeof profile.sharedHabitStreaks === 'object' && profile.sharedHabitStreaks !== null && !Array.isArray(profile.sharedHabitStreaks))
+        ? profile.sharedHabitStreaks
+        : {};
+      profile.lastSharedHabitCompletionResetDate = (typeof profile.lastSharedHabitCompletionResetDate === 'string' && profile.lastSharedHabitCompletionResetDate.match(/^\d{4}-\d{2}-\d{2}$/))
+        ? profile.lastSharedHabitCompletionResetDate
+        : ""; // Or getTodayDateString() if reset should happen on first load
 
       return profile as UserProfile;
     } catch (error) {
@@ -226,62 +323,45 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       return {
         username: 'Treinador', habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
         dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
-        dailyStreak: 0, lastStreakUpdateDate: "", completionHistory: [],
+        dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
         experiencePoints: 0, shareHabitsPublicly: false,
+        lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS,
+        sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: "",
       };
     }
   }, []);
 
   const handleDayRollover = useCallback((profile: UserProfile): UserProfile => {
     const todayLocalStr = getTodayDateString();
-    if (profile.lastResetDate === todayLocalStr) {
-      return profile;
-    }
-
     let updatedProfile = { ...profile };
-    const previousDayCompletions = updatedProfile.dailyCompletions;
-    const previousDayCompletionDateStr = updatedProfile.lastResetDate;
 
-    let newHistory = [{ date: previousDayCompletionDateStr, count: previousDayCompletions }, ...updatedProfile.completionHistory];
-    if (newHistory.length > MAX_HISTORY_ENTRIES) {
-      newHistory = newHistory.slice(0, MAX_HISTORY_ENTRIES);
-    }
-    updatedProfile.completionHistory = newHistory;
+    // Personal habits reset
+    if (profile.lastResetDate !== todayLocalStr) {
+        const previousDayCompletions = updatedProfile.dailyCompletions;
+        const previousDayCompletionDateStr = updatedProfile.lastResetDate;
 
-    if (previousDayCompletions > 0) {
-        const prevCompletionDate = parseLocalDateStr(previousDayCompletionDateStr);
-        const dayBeforePrevCompletionDate = new Date(prevCompletionDate);
-        dayBeforePrevCompletionDate.setDate(prevCompletionDate.getDate() - 1);
-        const dayBeforePrevCompletionDateStr = formatDateToLocalStr(dayBeforePrevCompletionDate);
-
-        if (updatedProfile.lastStreakUpdateDate === dayBeforePrevCompletionDateStr) {
-            updatedProfile.dailyStreak = (updatedProfile.dailyStreak || 0) + 1;
-        } else {
-            updatedProfile.dailyStreak = 1;
+        let newHistory = [{ date: previousDayCompletionDateStr, count: previousDayCompletions }, ...updatedProfile.completionHistory];
+        if (newHistory.length > MAX_HISTORY_ENTRIES) {
+        newHistory = newHistory.slice(0, MAX_HISTORY_ENTRIES);
         }
-        updatedProfile.lastStreakUpdateDate = previousDayCompletionDateStr;
-    } else {
-        const todayDate = parseLocalDateStr(todayLocalStr);
-        const prevResetDate = parseLocalDateStr(previousDayCompletionDateStr);
-        
-        const diffTime = todayDate.getTime() - prevResetDate.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        updatedProfile.completionHistory = newHistory;
 
-        if (diffDays > 1) {
-            updatedProfile.dailyStreak = 0;
-        }
-        if (previousDayCompletions === 0) {
-             updatedProfile.dailyStreak = 0;
-        }
-        updatedProfile.lastStreakUpdateDate = previousDayCompletionDateStr;
+        updatedProfile.habits = updatedProfile.habits.map(h => ({
+        ...h, completedToday: false, rewardClaimedToday: false,
+        }));
+        updatedProfile.dailyCompletions = 0;
+        updatedProfile.lastResetDate = todayLocalStr;
     }
 
-    updatedProfile.habits = updatedProfile.habits.map(h => ({
-      ...h, completedToday: false, rewardClaimedToday: false,
-    }));
-    updatedProfile.dailyCompletions = 0;
-    updatedProfile.lastResetDate = todayLocalStr;
-
+    // Shared habits completion flags reset logic will be handled by fetchSharedHabitsData or a dedicated reset function
+    // For now, if we stored a global reset date for shared habits on user profile:
+    if (updatedProfile.lastSharedHabitCompletionResetDate !== todayLocalStr) {
+        // This indicates a global reset is needed. The actual reset of `creatorCompletedToday` etc.
+        // will happen within the SharedHabit objects, typically fetched from the backend.
+        // We might just update this date here to signify the day has rolled over for shared habits too.
+        updatedProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
+    }
+    
     return updatedProfile;
   }, []);
 
@@ -293,6 +373,39 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       console.error("UserContext: Failed to save user profile to localStorage", error);
     }
   }, []);
+
+  const fetchSharedHabitsData = useCallback(async () => {
+    if (!currentUser) return;
+
+    setSharedHabitsData(prev => ({ ...prev, isLoading: true, error: null }));
+    try {
+      // TODO: Replace with actual API call: const response = await fetch(`/api/sharedHabits?username=${currentUser.username}`);
+      // const data = await response.json(); if (!response.ok) throw new Error(data.message);
+      // setSharedHabitsData({ active: data.active, pendingInvitationsReceived: data.pendingReceived, pendingInvitationsSent: data.pendingSent, isLoading: false, error: null });
+      
+      // Simulate API response for now
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+      const today = getTodayDateString();
+      // This is placeholder data. In reality, this would come from the API and would have already handled daily resets.
+      const exampleActive: SharedHabit[] = [];
+      const examplePendingReceived: SharedHabit[] = [];
+      const examplePendingSent: SharedHabit[] = [];
+
+      setSharedHabitsData({
+        active: exampleActive,
+        pendingInvitationsReceived: examplePendingReceived,
+        pendingInvitationsSent: examplePendingSent,
+        isLoading: false,
+        error: null,
+      });
+
+    } catch (err: any) {
+      console.error("Failed to fetch shared habits:", err);
+      setSharedHabitsData(prev => ({ ...prev, isLoading: false, error: err.message || "Failed to load shared habits" }));
+      setToastMessage(err.message || "Falha ao carregar hábitos compartilhados.", "error");
+    }
+  }, [currentUser, setToastMessage]);
+
 
   const loadUser = useCallback(() => {
     setLoading(true);
@@ -322,8 +435,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setCurrentUser(userProfile);
       setLoading(false);
+      if (userProfile) {
+        // fetchSharedHabitsData(); // Fetch shared habits after user is loaded
+      }
     }
-  }, [initializeProfileFields, handleDayRollover]);
+  }, [initializeProfileFields, handleDayRollover /*, fetchSharedHabitsData */]);
 
   useEffect(() => {
     loadUser();
@@ -339,17 +455,37 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [loadUser]);
 
   useEffect(() => {
+    if (currentUser && currentUser.username) {
+        // fetchSharedHabitsData(); // Also fetch if currentUser changes (e.g., after login)
+    }
+  }, [currentUser?.username /*, fetchSharedHabitsData */]);
+
+  useEffect(() => {
     const intervalId = setInterval(() => {
       if (currentUser) {
         const todayLocalStr = getTodayDateString();
+        let profileChanged = false;
+        let tempProfile = { ...currentUser };
+
         if (currentUser.lastResetDate !== todayLocalStr) {
-          const updatedProfile = handleDayRollover({ ...currentUser });
-          updateUserProfile(updatedProfile);
+          tempProfile = handleDayRollover(tempProfile); // handleDayRollover now returns updated profile
+          profileChanged = true;
+        }
+        // Potentially re-fetch shared habits data if day rolled over for them
+        if (currentUser.lastSharedHabitCompletionResetDate !== todayLocalStr) {
+            // fetchSharedHabitsData(); // This will handle its own state updates for sharedHabitData
+            if (!profileChanged) { // if personal habits didn't change, we still need to update the global reset date on user profile if it's there
+                tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
+                profileChanged = true;
+            }
+        }
+        if (profileChanged) {
+            updateUserProfile(tempProfile);
         }
       }
-    }, 60000);
+    }, 60000); // Check every minute for day rollover
     return () => clearInterval(intervalId);
-  }, [currentUser, handleDayRollover, updateUserProfile]);
+  }, [currentUser, handleDayRollover, updateUserProfile /*, fetchSharedHabitsData */]);
 
   const login = async (username: string): Promise<{ success: boolean; message?: string }> => {
     setLoading(true);
@@ -370,6 +506,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         
         setCurrentUser(userProfile);
         setLoading(false);
+        // await fetchSharedHabitsData(); // Fetch after successful login
         return { success: true, message: "Perfil carregado da nuvem." };
       } else if (response.status === 404) {
         const storedUsersString = localStorage.getItem('allPokemonHabitUsers');
@@ -380,17 +517,17 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           userProfileData = {
             username: trimmedUsername, habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
             dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
-            dailyStreak: 0, lastStreakUpdateDate: "", completionHistory: [],
+            dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
             experiencePoints: 0, shareHabitsPublicly: false,
+            lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS,
+            sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
           };
         } else {
-          userProfileData.username = trimmedUsername;
-          if (typeof userProfileData.shareHabitsPublicly !== 'boolean') {
-            userProfileData.shareHabitsPublicly = false;
-          }
+          // Ensure new fields are initialized for older profiles from local storage
+          userProfileData = initializeProfileFields(userProfileData); // Re-initialize to catch all defaults
         }
         
-        let userProfile = initializeProfileFields(userProfileData);
+        let userProfile = initializeProfileFields(userProfileData); // Ensure all fields, including new ones
         userProfile = handleDayRollover(userProfile);
 
         storedUsers[userProfile.username] = userProfile;
@@ -398,6 +535,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
         setCurrentUser(userProfile);
         setLoading(false);
+        // await fetchSharedHabitsData(); // Fetch after successful login
         return { success: true, message: "Novo perfil local criado." };
       } else {
         const errorData = await response.json();
@@ -427,11 +565,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
     setCurrentUser(null);
     localStorage.removeItem('pokemonHabitUser');
+    setSharedHabitsData({ active: [], pendingInvitationsReceived: [], pendingInvitationsSent: [], isLoading: false, error: null });
     setLoading(false);
   };
 
   const addHabit = (text: string) => {
-    if (!currentUser || currentUser.habits.length >= MAX_HABITS) return;
+    if (!currentUser || currentUser.habits.length >= currentUser.maxHabitSlots) return;
     const newHabit: Habit = {
       id: generateInstanceId(), text: text.trim(), completedToday: false, rewardClaimedToday: false, 
       totalCompletions: 0,
@@ -463,10 +602,49 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (newDailyCompletions % 5 === 0) newGreatBalls++;
     if (newDailyCompletions % 10 === 0) newUltraBalls++;
     
+    const todayLocalStr = getTodayDateString();
+    let newDailyStreak = currentUser.dailyStreak;
+    let newLastStreakUpdateDate = currentUser.lastStreakUpdateDate;
+    let newLastStreakDayClaimedForReward = currentUser.lastStreakDayClaimedForReward || 0;
+
+    if (!newLastStreakUpdateDate || newLastStreakUpdateDate === "") {
+      newDailyStreak = 1;
+      newLastStreakUpdateDate = todayLocalStr;
+      newLastStreakDayClaimedForReward = 0; 
+    } else {
+      const lastStreakDateObj = parseLocalDateStr(newLastStreakUpdateDate);
+      if (todayLocalStr === newLastStreakUpdateDate) {
+        if (newDailyStreak === 0) { 
+            newDailyStreak = 1;
+            newLastStreakDayClaimedForReward = 0; 
+        }
+      } else {
+        const dayAfterLastStreakDateObj = new Date(lastStreakDateObj);
+        dayAfterLastStreakDateObj.setDate(lastStreakDateObj.getDate() + 1);
+        const dayAfterLastStreakDateStr = formatDateToLocalStr(dayAfterLastStreakDateObj);
+
+        if (todayLocalStr === dayAfterLastStreakDateStr) {
+          newDailyStreak = (currentUser.dailyStreak || 0) + 1;
+          newLastStreakUpdateDate = todayLocalStr;
+        } else { 
+          newDailyStreak = 1;
+          newLastStreakUpdateDate = todayLocalStr;
+          newLastStreakDayClaimedForReward = 0; 
+        }
+      }
+    }
+    
     updateUserProfile({
-      ...currentUser, habits: updatedHabits, dailyCompletions: newDailyCompletions,
-      pokeBalls: newPokeBalls, greatBalls: newGreatBalls, ultraBalls: newUltraBalls,
+      ...currentUser, 
+      habits: updatedHabits, 
+      dailyCompletions: newDailyCompletions,
+      pokeBalls: newPokeBalls, 
+      greatBalls: newGreatBalls, 
+      ultraBalls: newUltraBalls,
       experiencePoints: newExperiencePoints,
+      dailyStreak: newDailyStreak,
+      lastStreakUpdateDate: newLastStreakUpdateDate,
+      lastStreakDayClaimedForReward: newLastStreakDayClaimedForReward,
     });
   };
 
@@ -547,7 +725,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       updatedProfile.shinyCaughtPokemonIds = [...updatedProfile.shinyCaughtPokemonIds, newPokemon.id];
     }
   
-    // Check for newly unlocked Gym Leaders
     const previouslyCaughtIds = new Set(profileBeforeCatch.caughtPokemon.map(p => p.id));
     const currentlyCaughtIds = new Set(updatedProfile.caughtPokemon.map(p => p.id));
   
@@ -595,7 +772,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
-    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud(); // Auto-save, except for Testmon
+    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud();
     return newPokemon;
   };
 
@@ -609,7 +786,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
-    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud(); // Auto-save, except for Testmon
+    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud();
     return newPokemon;
   };
 
@@ -623,12 +800,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
-    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud(); // Auto-save, except for Testmon
+    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud();
     return newPokemon;
   };
 
   const catchFromMasterBall = (): CaughtPokemon | null => {
-    if (!currentUser || currentUser.masterBalls <= 0) return null; // Master balls are consumed normally
+    if (!currentUser || currentUser.masterBalls <= 0) return null; 
     const newPokemon = _catchPokemonFromPool(MASTERBALL_WEIGHTED_POOL, 'master');
     const profileWithBallSpentAndXP: UserProfile = {
       ...currentUser, masterBalls: currentUser.masterBalls - 1,
@@ -636,7 +813,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
-    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud(); // Auto-save, except for Testmon
+    if (currentUser && currentUser.username !== TEST_USER_USERNAME) saveProfileToCloud();
     return newPokemon;
   };
 
@@ -717,6 +894,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       userProfile = handleDayRollover(userProfile);
       setCurrentUser(userProfile);
       setLoading(false);
+      // await fetchSharedHabitsData(); // Fetch after loading profile
       return { success: true, message: "Perfil carregado da nuvem!" };
     } catch (error: any) {
       setLoading(false);
@@ -729,12 +907,163 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     updateUserProfile({ ...currentUser, shareHabitsPublicly: !currentUser.shareHabitsPublicly, });
   };
 
+  const claimStreakRewards = () => {
+    if (!currentUser || currentUser.dailyStreak <= (currentUser.lastStreakDayClaimedForReward || 0)) {
+      setToastMessage("Nenhuma recompensa de sequência para resgatar.", "info");
+      return;
+    }
+
+    let pokeBallsAwarded = 0;
+    let greatBallsAwarded = 0;
+    let ultraBallsAwarded = 0;
+
+    const startDay = (currentUser.lastStreakDayClaimedForReward || 0) + 1;
+    for (let dayNum = startDay; dayNum <= currentUser.dailyStreak; dayNum++) {
+      pokeBallsAwarded++;
+      if (dayNum % 3 === 0) {
+        greatBallsAwarded++;
+      }
+      if (dayNum % 5 === 0) {
+        ultraBallsAwarded++;
+      }
+    }
+    
+    const updatedProfile = {
+      ...currentUser,
+      pokeBalls: currentUser.pokeBalls + pokeBallsAwarded,
+      greatBalls: currentUser.greatBalls + greatBallsAwarded,
+      ultraBalls: currentUser.ultraBalls + ultraBallsAwarded,
+      lastStreakDayClaimedForReward: currentUser.dailyStreak,
+    };
+    updateUserProfile(updatedProfile);
+
+    let rewardMessageParts: string[] = [];
+    if (pokeBallsAwarded > 0) rewardMessageParts.push(`${pokeBallsAwarded} ${getTranslatedBallName('poke', pokeBallsAwarded > 1)}`);
+    if (greatBallsAwarded > 0) rewardMessageParts.push(`${greatBallsAwarded} ${getTranslatedBallName('great', greatBallsAwarded > 1)}`);
+    if (ultraBallsAwarded > 0) rewardMessageParts.push(`${ultraBallsAwarded} ${getTranslatedBallName('ultra', ultraBallsAwarded > 1)}`);
+    
+    if (rewardMessageParts.length > 0) {
+      setToastMessage(`Recompensas da Sequência Resgatadas! Você ganhou: ${rewardMessageParts.join(', ')}.`, "success");
+    } else {
+       setToastMessage("Nenhuma recompensa de sequência adicional para hoje.", "info");
+    }
+  };
+
+  const claimLevelRewards = useCallback(() => {
+    if (!currentUser) return;
+
+    const levelInfo = calculatePlayerLevelInfoInternal(currentUser.experiencePoints);
+    const currentLevel = levelInfo.level;
+    const lastClaimed = currentUser.lastLevelRewardClaimed || 1;
+
+    if (currentLevel <= lastClaimed) {
+      setToastMessage("Nenhuma recompensa de nível para resgatar.", "info");
+      return;
+    }
+
+    let updatedProfile = { ...currentUser };
+    let awardedUltraBalls = 0;
+    let awardedGreatBalls = 0;
+    let awardedHabitSlots = 0;
+    let currentMaxHabits = updatedProfile.maxHabitSlots;
+
+
+    for (let levelToClaim = lastClaimed + 1; levelToClaim <= currentLevel; levelToClaim++) {
+      switch (levelToClaim) {
+        case 2:
+          updatedProfile.ultraBalls += 1;
+          awardedUltraBalls += 1;
+          break;
+        case 3:
+          currentMaxHabits += 1;
+          awardedHabitSlots += 1;
+          updatedProfile.ultraBalls += 1;
+          awardedUltraBalls += 1;
+          break;
+        case 4:
+          updatedProfile.ultraBalls += 1;
+          awardedUltraBalls += 1;
+          updatedProfile.greatBalls += 3;
+          awardedGreatBalls += 3;
+          break;
+        case 5:
+          currentMaxHabits += 2;
+          awardedHabitSlots += 2;
+          updatedProfile.ultraBalls += 3;
+          awardedUltraBalls += 3;
+          updatedProfile.greatBalls += 5;
+          awardedGreatBalls += 5;
+          break;
+        default: 
+          if (levelToClaim > 5) {
+            currentMaxHabits += 1;
+            awardedHabitSlots += 1;
+            updatedProfile.ultraBalls += 1;
+            awardedUltraBalls += 1;
+            updatedProfile.greatBalls += 1;
+            awardedGreatBalls += 1;
+          }
+          break;
+      }
+    }
+    updatedProfile.maxHabitSlots = currentMaxHabits;
+    updatedProfile.lastLevelRewardClaimed = currentLevel;
+    updateUserProfile(updatedProfile);
+
+    let rewardMessageParts: string[] = [];
+    if (awardedUltraBalls > 0) rewardMessageParts.push(`${awardedUltraBalls} ${getTranslatedBallName('ultra', awardedUltraBalls > 1)}`);
+    if (awardedGreatBalls > 0) rewardMessageParts.push(`${awardedGreatBalls} ${getTranslatedBallName('great', awardedGreatBalls > 1)}`);
+    if (awardedHabitSlots > 0) rewardMessageParts.push(`${awardedHabitSlots} Novo(s) Espaço(s) para Hábitos`);
+    
+    if (rewardMessageParts.length > 0) {
+      setToastMessage(`Recompensas de Nível Resgatadas! Você ganhou: ${rewardMessageParts.join(', ')}.`, "success");
+    } else {
+      setToastMessage("Nenhuma recompensa de nível adicional para resgatar agora.", "info");
+    }
+
+  }, [currentUser, updateUserProfile, setToastMessage]);
+
+  // --- Shared Habit Function Placeholders ---
+  const sendSharedHabitInvitation = async (targetUsername: string, habitText: string): Promise<{ success: boolean; message?: string }> => {
+    // TODO: Implement API call
+    console.log("Placeholder: sendSharedHabitInvitation", targetUsername, habitText);
+    setToastMessage("Funcionalidade de convite ainda não implementada.", "info");
+    return { success: false, message: "Não implementado" };
+  };
+
+  const respondToSharedHabitInvitation = async (sharedHabitId: string, response: 'accept' | 'decline'): Promise<{ success: boolean; message?: string }> => {
+    // TODO: Implement API call
+    console.log("Placeholder: respondToSharedHabitInvitation", sharedHabitId, response);
+    setToastMessage("Funcionalidade de resposta a convite ainda não implementada.", "info");
+    return { success: false, message: "Não implementado" };
+  };
+
+  const completeSharedHabit = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
+    // TODO: Implement API call and logic for joint completion rewards
+    console.log("Placeholder: completeSharedHabit", sharedHabitId);
+    setToastMessage("Funcionalidade de completar hábito compartilhado ainda não implementada.", "info");
+    return { success: false, message: "Não implementado" };
+  };
+  
+  const cancelSentSharedHabitRequest = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
+    // TODO: Implement API call
+    console.log("Placeholder: cancelSentSharedHabitRequest", sharedHabitId);
+    setToastMessage("Funcionalidade de cancelar convite ainda não implementada.", "info");
+    return { success: false, message: "Não implementado" };
+  };
+
+
   return (
     <UserContext.Provider value={{
       currentUser, loading, login, logout, addHabit, confirmHabitCompletion, deleteHabit,
       catchFromPokeBall, catchFromGreatBall, catchFromUltraBall, catchFromMasterBall,
       releasePokemon, tradePokemon, updateUserProfile, saveProfileToCloud, loadProfileFromCloud,
-      toggleShareHabitsPublicly, toastMessage, clearToastMessage,
+      toggleShareHabitsPublicly, claimStreakRewards, claimLevelRewards, 
+      toastMessage: toastMessageState, clearToastMessage, setToastMessage,
+      calculatePlayerLevelInfo: calculatePlayerLevelInfoInternal,
+      // Shared Habits
+      sharedHabitsData, fetchSharedHabitsData, sendSharedHabitInvitation,
+      respondToSharedHabitInvitation, completeSharedHabit, cancelSentSharedHabitRequest,
     }}>
       {children}
     </UserContext.Provider>

@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
+import { MIN_LEVEL_FOR_SHARED_HABITS } from '../constants';
 
 const Navbar: React.FC = () => {
-  const { currentUser, logout, saveProfileToCloud } = useUser();
+  const { currentUser, logout, saveProfileToCloud, calculatePlayerLevelInfo } = useUser();
   const [isSavingNavbar, setIsSavingNavbar] = useState(false);
   const [navbarSaveMessage, setNavbarSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -16,6 +17,8 @@ const Navbar: React.FC = () => {
   const mobileInactiveStyle = "block w-full text-left py-2 px-3 rounded-md text-slate-300 hover:text-yellow-400 hover:bg-slate-700";
   const mobileButtonStyle = "block w-full text-left py-2 px-3 rounded-md text-slate-300 hover:text-yellow-400 hover:bg-slate-700 transition-colors disabled:opacity-70";
 
+  const playerLevel = currentUser ? calculatePlayerLevelInfo(currentUser.experiencePoints).level : 0;
+  const canAccessSharedHabits = playerLevel >= MIN_LEVEL_FOR_SHARED_HABITS;
 
   const handleNavbarSave = async () => {
     setIsSavingNavbar(true);
@@ -41,9 +44,12 @@ const Navbar: React.FC = () => {
           {/* Desktop Menu (Links & Save Button) */}
           <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
             <NavLink to="/" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Hábitos</NavLink>
+            {canAccessSharedHabits && (
+              <NavLink to="/shared-habits" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Colaborativos</NavLink>
+            )}
             <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Meus Pokémon</NavLink>
             <NavLink to="/pokedex" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Pokédex</NavLink>
-            <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Líderes</NavLink> {/* New Link */}
+            <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Líderes</NavLink>
             <NavLink to="/ranking" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Ranking</NavLink>
             <button
               onClick={handleNavbarSave}
@@ -99,9 +105,12 @@ const Navbar: React.FC = () => {
           <div className="md:hidden py-2" id="mobile-menu">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col">
               <NavLink to="/" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Hábitos</NavLink>
+              {canAccessSharedHabits && (
+                <NavLink to="/shared-habits" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Colaborativos</NavLink>
+              )}
               <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Meus Pokémon</NavLink>
               <NavLink to="/pokedex" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Pokédex</NavLink>
-              <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Líderes</NavLink> {/* New Link */}
+              <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Líderes</NavLink>
               <NavLink to="/ranking" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Ranking</NavLink>
               
               <hr className="border-slate-700 my-2"/>

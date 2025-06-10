@@ -4,15 +4,18 @@ import { useUser } from '../contexts/UserContext';
 import { Habit } from '../types'; // Import Habit type
 
 const StatsPage: React.FC = () => {
-  const { currentUser } = useUser();
+  const { currentUser, claimStreakRewards } = useUser(); // Added claimStreakRewards
 
   if (!currentUser) {
     return <p className="text-center text-xl py-10">Carregando estatísticas do treinador...</p>;
   }
 
-  const { dailyStreak, completionHistory, habits } = currentUser;
+  const { dailyStreak, habits, lastStreakDayClaimedForReward } = currentUser;
 
   const rankedHabits = [...habits].sort((a, b) => (b.totalCompletions || 0) - (a.totalCompletions || 0));
+
+  const canClaimStreakRewards = dailyStreak > (lastStreakDayClaimedForReward || 0);
+  const rewardsAvailableFromDay = (lastStreakDayClaimedForReward || 0) + 1;
 
   return (
     <div className="space-y-10">
@@ -27,22 +30,28 @@ const StatsPage: React.FC = () => {
         </div>
         {dailyStreak === 0 && <p className="text-slate-400 mt-2">Complete um hábito hoje para começar uma nova sequência!</p>}
         {dailyStreak > 0 && <p className="text-slate-400 mt-2">Continue assim, Treinador!</p>}
-      </section>
 
-      {/* Daily Completion History Section */}
-      <section className="bg-slate-800 p-6 rounded-xl shadow-lg">
-        <h2 className="text-2xl font-semibold text-yellow-400 mb-4">Histórico de Conclusões Diárias (Últimos {completionHistory.length} dias)</h2>
-        {completionHistory.length > 0 ? (
-          <ul className="space-y-2 max-h-96 overflow-y-auto pr-2">
-            {completionHistory.map((entry, index) => (
-              <li key={index} className="bg-slate-700 p-3 rounded-md flex justify-between items-center">
-                <span className="text-slate-300">{new Date(entry.date).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' })}:</span>
-                <span className="font-semibold text-yellow-300">{entry.count} {entry.count === 1 ? 'hábito' : 'hábitos'}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-slate-400">Nenhum histórico de conclusão ainda. Complete alguns hábitos!</p>
+        {dailyStreak > 0 && (
+          <div className="mt-4">
+            {canClaimStreakRewards ? (
+              <>
+                <p className="text-sm text-slate-300 mb-2">
+                  Recompensas disponíveis para os dias {rewardsAvailableFromDay} a {dailyStreak} da sua sequência.
+                </p>
+                <button
+                  onClick={claimStreakRewards}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg"
+                  aria-label="Resgatar recompensas da sua sequência diária"
+                >
+                  Resgatar Recompensas da Sequência
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-slate-400">
+                Você já resgatou todas as recompensas para sua sequência atual. Mantenha a sequência para mais!
+              </p>
+            )}
+          </div>
         )}
       </section>
 

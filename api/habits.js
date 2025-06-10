@@ -40,9 +40,17 @@ const UserProfileSchema = new mongoose.Schema({
   shinyCaughtPokemonIds: [Number],
   dailyStreak: Number,
   lastStreakUpdateDate: String, 
+  lastStreakDayClaimedForReward: { type: Number, default: 0 },
   completionHistory: [CompletionHistorySchema],
   experiencePoints: Number,
-  shareHabitsPublicly: { type: Boolean, default: false }, // Added field
+  shareHabitsPublicly: { type: Boolean, default: false },
+  lastLevelRewardClaimed: { type: Number, default: 1 },
+  maxHabitSlots: { type: Number, default: 10 },
+  // New fields for Shared Habits
+  sharedHabitStreaks: { type: Map, of: Number, default: {} }, // Stores partnerUsername: streakCount
+  lastSharedHabitCompletionResetDate: { type: String, default: '' }, // YYYY-MM-DD
+  // IDs of shared habits this user is part of (active, pending etc.) will be managed by the SharedHabitModel itself,
+  // by querying where creatorUsername or inviteeUsername matches.
 });
 
 const UserProfileModel = mongoose.models.UserProfile || mongoose.model('UserProfile', UserProfileSchema);
@@ -74,7 +82,6 @@ export default async function handler(req, res) {
   try {
     await connectToDatabase();
   } catch (dbError) {
-    // Log the detailed error for server-side debugging
     console.error("Database connection setup failed:", dbError);
     return res.status(500).json({ error: 'Database connection failed. Please check server logs.'});
   }
@@ -87,15 +94,35 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Username is required in profile data.' });
       }
 
+      // Ensure defaults for new fields if not present in older data being saved
+      if (typeof profileData.lastStreakDayClaimedForReward === 'undefined') {
+        profileData.lastStreakDayClaimedForReward = 0;
+      }
+      if (typeof profileData.shareHabitsPublicly === 'undefined') {
+        profileData.shareHabitsPublicly = false;
+      }
+      if (typeof profileData.lastLevelRewardClaimed === 'undefined') {
+        profileData.lastLevelRewardClaimed = 1;
+      }
+      if (typeof profileData.maxHabitSlots === 'undefined') {
+        profileData.maxHabitSlots = 10; 
+      }
+      if (typeof profileData.sharedHabitStreaks === 'undefined') {
+        profileData.sharedHabitStreaks = {};
+      }
+      if (typeof profileData.lastSharedHabitCompletionResetDate === 'undefined') {
+        profileData.lastSharedHabitCompletionResetDate = ''; // Or a function to get today's date string
+      }
+
+
       const updatedProfile = await UserProfileModel.findOneAndUpdate(
         { username: profileData.username },
         profileData,
-        { new: true, upsert: true, runValidators: true }
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
       );
       return res.status(200).json({ message: 'Profile saved successfully.', profile: updatedProfile });
     } catch (error) {
       console.error('Error saving profile:', error);
-      // Provide a more generic error message to the client
       return res.status(500).json({ error: 'Failed to save profile. An internal error occurred.' });
     }
   } else if (req.method === 'GET') { // Load user profile
@@ -104,11 +131,26 @@ export default async function handler(req, res) {
       if (!username) {
         return res.status(400).json({ error: 'Username query parameter is required.' });
       }
-      const profile = await UserProfileModel.findOne({ username }).lean(); // .lean() for plain JS object
+      const profile = await UserProfileModel.findOne({ username }).lean(); 
       if (!profile) {
         return res.status(404).json({ error: 'Profile not found.' });
       }
-      // Remove MongoDB specific fields if necessary, though .lean() helps
+      
+      // Ensure new fields have defaults if loading an older document from DB that doesn't have them
+      if (typeof profile.lastLevelRewardClaimed === 'undefined') {
+        profile.lastLevelRewardClaimed = 1;
+      }
+      if (typeof profile.maxHabitSlots === 'undefined') {
+        profile.maxHabitSlots = 10; 
+      }
+      if (typeof profile.sharedHabitStreaks === 'undefined') {
+        profile.sharedHabitStreaks = {};
+      }
+       if (typeof profile.lastSharedHabitCompletionResetDate === 'undefined') {
+        profile.lastSharedHabitCompletionResetDate = ''; // Or a function to get today's date string
+      }
+
+
       delete profile._id;
       delete profile.__v;
       return res.status(200).json(profile);

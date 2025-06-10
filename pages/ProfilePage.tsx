@@ -4,66 +4,14 @@ import { useUser } from '../contexts/UserContext';
 import Modal from '../components/Modal'; // Import Modal
 import {
     POKEMON_MASTER_LIST,
-    LEVEL_THRESHOLDS,
-    MAX_PLAYER_LEVEL,
+    // LEVEL_THRESHOLDS, // No longer directly needed here
+    // MAX_PLAYER_LEVEL, // No longer directly needed here
 } from '../constants';
 
-interface LevelInfo {
-  level: number;
-  xpToNextLevelDisplay: string;
-  currentXPInLevelDisplay: number;
-  totalXPForThisLevelSpanDisplay: number;
-  xpProgressPercent: number;
-  isMaxLevel: boolean;
-}
-
-const calculatePlayerLevelInfo = (totalXP: number): LevelInfo => {
-  let currentLevel = 1;
-  for (let i = 1; i < LEVEL_THRESHOLDS.length; i++) {
-    if (totalXP >= LEVEL_THRESHOLDS[i]) {
-      currentLevel = i + 1;
-    } else {
-      break;
-    }
-  }
-  currentLevel = Math.min(currentLevel, MAX_PLAYER_LEVEL);
-
-  const isMaxLevel = currentLevel === MAX_PLAYER_LEVEL;
-  const xpForCurrentLevelStart = LEVEL_THRESHOLDS[currentLevel - 1];
-
-  let xpToNextLevelDisplay = "N/A";
-  let currentXPInLevelDisplay = 0;
-  let totalXPForThisLevelSpanDisplay = 0;
-  let xpProgressPercent = 100;
-
-  if (!isMaxLevel) {
-    const xpForNextLevelStart = LEVEL_THRESHOLDS[currentLevel];
-    totalXPForThisLevelSpanDisplay = xpForNextLevelStart - xpForCurrentLevelStart;
-    currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
-    const xpRemainingForNextLevel = totalXPForThisLevelSpanDisplay - currentXPInLevelDisplay;
-    xpToNextLevelDisplay = xpRemainingForNextLevel.toLocaleString('pt-BR');
-    xpProgressPercent = totalXPForThisLevelSpanDisplay > 0 ? (currentXPInLevelDisplay / totalXPForThisLevelSpanDisplay) * 100 : 100;
-    xpProgressPercent = Math.max(0, Math.min(xpProgressPercent, 100));
-  } else {
-    currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
-    totalXPForThisLevelSpanDisplay = currentXPInLevelDisplay;
-    xpProgressPercent = 100;
-    xpToNextLevelDisplay = "MAX";
-  }
-
-  return {
-    level: currentLevel,
-    xpToNextLevelDisplay,
-    currentXPInLevelDisplay,
-    totalXPForThisLevelSpanDisplay,
-    xpProgressPercent,
-    isMaxLevel,
-  };
-};
-
+// LevelInfo interface is now managed by UserContext
 
 const ProfilePage: React.FC = () => {
-  const { currentUser, saveProfileToCloud, loadProfileFromCloud } = useUser();
+  const { currentUser, saveProfileToCloud, loadProfileFromCloud, claimLevelRewards, calculatePlayerLevelInfo } = useUser();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [cloudMessage, setCloudMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -78,7 +26,7 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  const { username, caughtPokemon, pokeBalls, greatBalls, ultraBalls, masterBalls, habits, experiencePoints, dailyStreak, dailyCompletions } = currentUser;
+  const { username, caughtPokemon, pokeBalls, greatBalls, ultraBalls, masterBalls, habits, experiencePoints, dailyStreak, dailyCompletions, lastLevelRewardClaimed } = currentUser;
 
   const totalPokemonCaught = caughtPokemon.length;
   const uniquePokemonSpeciesCaught = new Set(caughtPokemon.map(p => p.id)).size;
@@ -86,6 +34,7 @@ const ProfilePage: React.FC = () => {
   const totalLifetimeCompletions = habits.reduce((sum, h) => sum + (h.totalCompletions || 0), 0);
 
   const levelInfo = calculatePlayerLevelInfo(experiencePoints);
+  const canClaimLevelRewards = levelInfo.level > (lastLevelRewardClaimed || 1);
 
   const handleSaveToCloud = async () => {
     setIsSaving(true);
@@ -185,6 +134,23 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
          {levelInfo.isMaxLevel && <p className="text-sm text-green-400 text-center mt-2">Parabéns por alcançar o nível máximo!</p>}
+         
+         {/* Level Rewards Button */}
+        <div className="mt-6 text-center">
+            <button
+                onClick={claimLevelRewards}
+                disabled={!canClaimLevelRewards}
+                className={`font-bold py-3 px-6 rounded-lg transition-colors shadow-md w-full sm:w-auto
+                    ${canClaimLevelRewards 
+                        ? 'bg-yellow-500 hover:bg-yellow-600 text-slate-900' 
+                        : 'bg-slate-600 text-slate-400 cursor-not-allowed'}`}
+                aria-live="polite"
+                aria-disabled={!canClaimLevelRewards}
+            >
+                {canClaimLevelRewards ? "Resgatar Recompensas de Nível" : (levelInfo.isMaxLevel && !canClaimLevelRewards ? "Todas Recompensas de Nível Resgatadas" : "Nenhuma Recompensa de Nível Pendente")}
+            </button>
+            {canClaimLevelRewards && <p className="text-xs text-yellow-200 mt-2">Você tem recompensas de nível para resgatar!</p>}
+        </div>
       </section>
 
       {/* General Stats Section */}
@@ -211,7 +177,7 @@ const ProfilePage: React.FC = () => {
         <div className="bg-slate-800 p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow">
           <h3 className="text-xl font-semibold text-yellow-400 mb-3">Estatísticas de Hábitos</h3>
           <ul className="space-y-2 text-slate-300">
-            <li><strong className="text-slate-100">Hábitos Ativos:</strong> {totalHabits}</li>
+            <li><strong className="text-slate-100">Hábitos Ativos:</strong> {totalHabits} / {currentUser.maxHabitSlots}</li>
             <li><strong className="text-slate-100">Conclusões de Hoje:</strong> {dailyCompletions}</li>
             <li><strong className="text-slate-100">Sequência Diária:</strong> {dailyStreak} dias</li>
             <li><strong className="text-slate-100">Conclusões Totais (Vida):</strong> {totalLifetimeCompletions}</li>

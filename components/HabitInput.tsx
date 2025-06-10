@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
-import { MAX_HABITS } from '../constants';
+// import { MAX_HABITS } from '../constants'; // No longer needed directly
 
 const HabitInput: React.FC = () => {
   const [habitText, setHabitText] = useState('');
@@ -9,18 +9,20 @@ const HabitInput: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (habitText.trim() && currentUser && currentUser.habits.length < MAX_HABITS) {
+    if (!currentUser) return;
+
+    if (habitText.trim() && currentUser.habits.length < currentUser.maxHabitSlots) {
       addHabit(habitText.trim());
       setHabitText('');
-    } else if (currentUser && currentUser.habits.length >= MAX_HABITS) {
-      alert(`Você pode acompanhar até ${MAX_HABITS} hábitos.`);
+    } else if (currentUser.habits.length >= currentUser.maxHabitSlots) {
+      alert(`Você pode acompanhar até ${currentUser.maxHabitSlots} hábitos.`);
     }
   };
 
-  if (!currentUser || currentUser.habits.length >= MAX_HABITS) {
+  if (!currentUser || currentUser.habits.length >= currentUser.maxHabitSlots) {
     return (
       <div className="my-4 p-3 bg-slate-700 rounded-lg text-center text-slate-400">
-        Você atingiu o máximo de {MAX_HABITS} hábitos. Concentre-se nestes por enquanto!
+        Você atingiu o máximo de {currentUser?.maxHabitSlots || 0} hábitos. Concentre-se nestes por enquanto ou suba de nível para mais espaços!
       </div>
     );
   }
