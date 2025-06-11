@@ -307,7 +307,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       profile.experiencePoints = parseNumericField(profile.experiencePoints, 0);
       profile.shareHabitsPublicly = typeof profile.shareHabitsPublicly === 'boolean' ? profile.shareHabitsPublicly : false;
       profile.lastLevelRewardClaimed = parseNumericField(profile.lastLevelRewardClaimed, 1);
-      profile.maxHabitSlots = parseNumericField(profile.maxHabitSlots, INITIAL_MAX_HABIT_SLOTS);
+      
+      // Max habit slots are now fixed
+      profile.maxHabitSlots = INITIAL_MAX_HABIT_SLOTS;
 
       profile.sharedHabitStreaks = (typeof profile.sharedHabitStreaks === 'object' && profile.sharedHabitStreaks !== null && !Array.isArray(profile.sharedHabitStreaks))
         ? profile.sharedHabitStreaks
@@ -351,10 +353,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         updatedProfile.lastResetDate = todayLocalStr;
     }
 
+    // This field is mainly managed by server on GET /api/sharedHabits.
+    // Client-side update is less critical here but kept for consistency if profile is saved before next fetch.
     if (updatedProfile.lastSharedHabitCompletionResetDate !== todayLocalStr) {
         updatedProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
-        // The actual reset of individual shared habit flags (creatorCompletedToday etc.)
-        // happens on the backend or when fetchSharedHabitsData is called and processes them.
     }
     
     return updatedProfile;
@@ -431,10 +433,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setCurrentUser(userProfile);
       setLoading(false);
       if (userProfile) {
-        fetchSharedHabitsData(); 
+        // fetchSharedHabitsData will be called by useEffects below based on currentUser update
       }
     }
-  }, [initializeProfileFields, handleDayRollover, fetchSharedHabitsData]);
+  }, [initializeProfileFields, handleDayRollover]);
 
   useEffect(() => {
     loadUser(); // Initial load
@@ -448,36 +450,44 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       window.removeEventListener('storage', handleStorageChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only on mount to prevent infinite loop with loadUser dependencies
+  }, []); 
 
   useEffect(() => {
     if (currentUser && currentUser.username) {
-        fetchSharedHabitsData(); 
+        const playerLevelInfo = calculatePlayerLevelInfoInternal(currentUser.experiencePoints);
+        if (playerLevelInfo.level >= MIN_LEVEL_FOR_SHARED_HABITS) {
+            fetchSharedHabitsData();
+        } else {
+            setSharedHabitsData({ active: [], pendingInvitationsReceived: [], pendingInvitationsSent: [], isLoading: false, error: null });
+        }
     }
-  }, [currentUser?.username, fetchSharedHabitsData]);
+  }, [currentUser?.username, currentUser?.experiencePoints, fetchSharedHabitsData]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (currentUser) {
         const todayLocalStr = getTodayDateString();
-        let profileChanged = false;
+        let profileChangedByDayRollover = false;
         let tempProfile = { ...currentUser };
 
         if (currentUser.lastResetDate !== todayLocalStr) {
           tempProfile = handleDayRollover(tempProfile); 
-          profileChanged = true;
+          profileChangedByDayRollover = true;
         }
         
+        // Check if shared habits data needs refresh due to day change
+        // The individual habit reset is handled by the GET /api/sharedHabits call
+        // This primarily ensures fetchSharedHabitsData is called if the day rolls over client-side
+        // and the profile's lastSharedHabitCompletionResetDate is updated.
         if (currentUser.lastSharedHabitCompletionResetDate !== todayLocalStr) {
-            fetchSharedHabitsData(); 
-            if (!profileChanged) { 
-                tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
-                profileChanged = true;
-            } else { // if profileChanged was already true from normal habit reset, ensure this date is also set on tempProfile
-                 tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
+            if (calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level >= MIN_LEVEL_FOR_SHARED_HABITS) {
+                 fetchSharedHabitsData(); 
             }
+            tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr; // Update client-side tracking
+            if (!profileChangedByDayRollover) profileChangedByDayRollover = true;
         }
-        if (profileChanged) {
+
+        if (profileChangedByDayRollover) {
             updateUserProfile(tempProfile);
         }
       }
@@ -503,8 +513,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
         
         setCurrentUser(userProfile);
-        setLoading(false); // Set loading false before awaiting fetchSharedHabitsData
-        await fetchSharedHabitsData(); 
+        // fetchSharedHabitsData will be triggered by useEffect watching currentUser
+        setLoading(false); 
         return { success: true, message: "Perfil carregado da nuvem." };
       } else if (response.status === 404) {
         const storedUsersString = localStorage.getItem('allPokemonHabitUsers');
@@ -531,8 +541,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
         localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
         setCurrentUser(userProfile);
-        setLoading(false); // Set loading false before awaiting fetchSharedHabitsData
-        await fetchSharedHabitsData(); 
+        // fetchSharedHabitsData will be triggered by useEffect watching currentUser
+        setLoading(false);
         return { success: true, message: "Novo perfil local criado." };
       } else {
         const errorData = await response.json();
@@ -890,8 +900,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       let userProfile = initializeProfileFields(data);
       userProfile = handleDayRollover(userProfile);
       setCurrentUser(userProfile);
-      setLoading(false); // Set loading false before awaiting fetchSharedHabitsData
-      await fetchSharedHabitsData(); 
+      // fetchSharedHabitsData will be triggered by useEffect watching currentUser
+      setLoading(false); 
       return { success: true, message: "Perfil carregado da nuvem!" };
     } catch (error: any) {
       setLoading(false);
@@ -967,19 +977,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     let updatedProfile = { ...currentUser };
     let awardedUltraBalls = 0;
     let awardedGreatBalls = 0;
-    let awardedHabitSlots = 0;
-    let currentMaxHabits = updatedProfile.maxHabitSlots;
-
+    // Removed awardedHabitSlots and currentMaxHabits logic
 
     for (let levelToClaim = lastClaimed + 1; levelToClaim <= currentLevel; levelToClaim++) {
+      // Rewards for habit slots are removed
       switch (levelToClaim) {
         case 2:
           updatedProfile.ultraBalls += 1;
           awardedUltraBalls += 1;
           break;
-        case 3:
-          currentMaxHabits += 1;
-          awardedHabitSlots += 1;
+        case 3: // No habit slot increase
           updatedProfile.ultraBalls += 1;
           awardedUltraBalls += 1;
           break;
@@ -989,18 +996,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           updatedProfile.greatBalls += 3;
           awardedGreatBalls += 3;
           break;
-        case 5:
-          currentMaxHabits += 2;
-          awardedHabitSlots += 2;
+        case 5: // No habit slot increase
           updatedProfile.ultraBalls += 3;
           awardedUltraBalls += 3;
           updatedProfile.greatBalls += 5;
           awardedGreatBalls += 5;
           break;
         default: 
-          if (levelToClaim > 5) {
-            currentMaxHabits += 1;
-            awardedHabitSlots += 1;
+          if (levelToClaim > 5) { // No habit slot increase
             updatedProfile.ultraBalls += 1;
             awardedUltraBalls += 1;
             updatedProfile.greatBalls += 1;
@@ -1009,14 +1012,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           break;
       }
     }
-    updatedProfile.maxHabitSlots = currentMaxHabits;
+    // updatedProfile.maxHabitSlots is no longer changed here
     updatedProfile.lastLevelRewardClaimed = currentLevel;
     updateUserProfile(updatedProfile);
 
     let rewardMessageParts: string[] = [];
     if (awardedUltraBalls > 0) rewardMessageParts.push(`${awardedUltraBalls} ${getTranslatedBallName('ultra', awardedUltraBalls > 1)}`);
     if (awardedGreatBalls > 0) rewardMessageParts.push(`${awardedGreatBalls} ${getTranslatedBallName('great', awardedGreatBalls > 1)}`);
-    if (awardedHabitSlots > 0) rewardMessageParts.push(`${awardedHabitSlots} Novo(s) Espaço(s) para Hábitos`);
+    // Removed habit slot message part
     
     if (rewardMessageParts.length > 0) {
       setToastMessage(`Recompensas de Nível Resgatadas! Você ganhou: ${rewardMessageParts.join(', ')}.`, "success");
@@ -1043,7 +1046,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       if (!response.ok) {
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
-      await fetchSharedHabitsData(); // Refresh data on success
+      await fetchSharedHabitsData(); 
       return { success: true, message: data.message || "Convite enviado com sucesso!" };
     } catch (error: any) {
       console.error("Error sending shared habit invitation:", error);
@@ -1053,68 +1056,78 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   const respondToSharedHabitInvitation = async (sharedHabitId: string, responseStatus: 'accept' | 'decline'): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
-    // TODO: Implement API call to PUT /api/sharedHabits/respond (or similar)
-    console.log("Placeholder: respondToSharedHabitInvitation", sharedHabitId, responseStatus);
-    setToastMessage(`Resposta a convite (${responseStatus}) ainda não implementada.`, "info");
-    // Example:
-    // try {
-    //   const apiResponse = await fetch(`/api/sharedHabits/respond/${sharedHabitId}`, {
-    //     method: 'PUT', // or POST
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ response: responseStatus, responderUsername: currentUser.username })
-    //   });
-    //   const data = await apiResponse.json();
-    //   if (!apiResponse.ok) throw new Error(data.message || 'Failed to respond to invitation');
-    //   await fetchSharedHabitsData();
-    //   return { success: true, message: data.message };
-    // } catch (error: any) {
-    //   return { success: false, message: error.message };
-    // }
-    return { success: false, message: "Não implementado" };
+    try {
+      const apiResponse = await fetch(`/api/sharedHabits/${sharedHabitId}/respond`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: responseStatus, responderUsername: currentUser.username })
+      });
+      const data = await apiResponse.json();
+      if (!apiResponse.ok) throw new Error(data.message || 'Falha ao responder ao convite');
+      await fetchSharedHabitsData();
+      // If accepted, also save current user profile locally as sharedHabitStreaks might be initialized by server if it's new.
+      if (responseStatus === 'accept' && data.sharedHabit) {
+           const updatedProfile = {
+            ...currentUser,
+            // Server might initialize streak. Client doesn't need to manually update it here.
+            // Just ensure profile is "dirty" for potential save.
+           };
+           updateUserProfile(updatedProfile); // This saves to localStorage.
+      }
+      return { success: true, message: data.message };
+    } catch (error: any) {
+      console.error("Error responding to shared habit invitation:", error);
+      return { success: false, message: error.message || "Falha ao responder ao convite." };
+    }
   };
 
   const completeSharedHabit = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
-    // TODO: Implement API call to POST /api/sharedHabits/complete (or similar)
-    console.log("Placeholder: completeSharedHabit", sharedHabitId);
-    setToastMessage("Completar hábito compartilhado ainda não implementado.", "info");
-     // Example:
-    // try {
-    //   const apiResponse = await fetch(`/api/sharedHabits/complete/${sharedHabitId}`, {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ usernameCompleting: currentUser.username })
-    //   });
-    //   const data = await apiResponse.json();
-    //   if (!apiResponse.ok) throw new Error(data.message || 'Failed to complete shared habit');
-    //   await fetchSharedHabitsData(); // Also potentially update user profile for streaks/rewards
-    //   return { success: true, message: data.message };
-    // } catch (error: any) {
-    //   return { success: false, message: error.message };
-    // }
-    return { success: false, message: "Não implementado" };
+    try {
+      const apiResponse = await fetch(`/api/sharedHabits/${sharedHabitId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernameCompleting: currentUser.username })
+      });
+      const data = await apiResponse.json();
+      if (!apiResponse.ok) throw new Error(data.message || 'Falha ao completar hábito compartilhado');
+      
+      await fetchSharedHabitsData(); 
+
+      if (data.message && data.message.includes("Ambos completaram")) {
+         const XP_FROM_SHARED = 5; 
+         const POKEBALL_FROM_SHARED = 1; 
+         
+         updateUserProfile({
+            ...currentUser,
+            experiencePoints: currentUser.experiencePoints + XP_FROM_SHARED,
+            pokeBalls: currentUser.pokeBalls + POKEBALL_FROM_SHARED,
+         });
+      }
+
+      return { success: true, message: data.message };
+    } catch (error: any) {
+      console.error("Error completing shared habit:", error);
+      return { success: false, message: error.message || "Falha ao completar hábito." };
+    }
   };
   
   const cancelSentSharedHabitRequest = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
-    // TODO: Implement API call to DELETE /api/sharedHabits/cancel (or similar)
-    console.log("Placeholder: cancelSentSharedHabitRequest", sharedHabitId);
-    setToastMessage("Cancelar convite enviado ainda não implementado.", "info");
-    // Example:
-    // try {
-    //   const apiResponse = await fetch(`/api/sharedHabits/cancel/${sharedHabitId}`, {
-    //     method: 'DELETE', // or POST with a specific action
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ cancellerUsername: currentUser.username }) // Ensure authorized
-    //   });
-    //   const data = await apiResponse.json();
-    //   if (!apiResponse.ok) throw new Error(data.message || 'Failed to cancel shared habit request');
-    //   await fetchSharedHabitsData();
-    //   return { success: true, message: data.message };
-    // } catch (error: any) {
-    //   return { success: false, message: error.message };
-    // }
-    return { success: false, message: "Não implementado" };
+    try {
+      const apiResponse = await fetch(`/api/sharedHabits/${sharedHabitId}/cancel`, {
+        method: 'DELETE', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cancellerUsername: currentUser.username }) 
+      });
+      const data = await apiResponse.json();
+      if (!apiResponse.ok) throw new Error(data.message || 'Falha ao cancelar o convite.');
+      await fetchSharedHabitsData();
+      return { success: true, message: data.message };
+    } catch (error: any) {
+      console.error("Error canceling shared habit request:", error);
+      return { success: false, message: error.message || "Falha ao cancelar o convite." };
+    }
   };
 
 

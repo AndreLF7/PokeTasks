@@ -131,4 +131,5 @@ export interface AvatarOption {
   name: string;
   profileImageUrl: string;
   navbarSpriteUrl: string;
+  gymLeaderId?: string; // Optional: Links avatar to a gym leader for unlock conditions
 }

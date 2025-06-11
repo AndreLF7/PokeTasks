@@ -1,13 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useUser } from '../contexts/UserContext';
 import Modal from '../components/Modal'; // Import Modal
 import {
     POKEMON_MASTER_LIST,
     AVATAR_OPTIONS, // Import avatar options
     DEFAULT_AVATAR_ID, // Import default avatar ID
+    GYM_LEADERS, // Import GYM_LEADERS for unlock conditions
 } from '../constants';
-import type { AvatarOption } from '../types'; // Import AvatarOption type
+import type { AvatarOption, GymLeader } from '../types'; // Import AvatarOption and GymLeader types
 
 // LevelInfo interface is now managed by UserContext
 
@@ -38,6 +39,19 @@ const ProfilePage: React.FC = () => {
   const canClaimLevelRewards = levelInfo.level > (lastLevelRewardClaimed || 1);
 
   const currentSelectedAvatar = AVATAR_OPTIONS.find(av => av.id === (avatarId || DEFAULT_AVATAR_ID)) || AVATAR_OPTIONS[0];
+  
+  const caughtPokemonIdsSet = useMemo(() => new Set(currentUser.caughtPokemon.map(p => p.id)), [currentUser.caughtPokemon]);
+
+  const isAvatarUnlocked = (avatarOpt: AvatarOption): boolean => {
+    if (!avatarOpt.gymLeaderId) {
+      return true; // Avatars without a gymLeaderId are always unlocked (e.g., Red, Leaf)
+    }
+    const leader = GYM_LEADERS.find(gl => gl.id === avatarOpt.gymLeaderId);
+    if (!leader) {
+      return false; // Should not happen if constants are set up correctly
+    }
+    return leader.pokemon.every(p => caughtPokemonIdsSet.has(p.id));
+  };
 
 
   const handleSaveToCloud = async () => {
@@ -66,6 +80,16 @@ const ProfilePage: React.FC = () => {
     setIsLoadingCloud(false);
     setTimeout(() => setCloudMessage(null), 5000);
   };
+  
+  const handleAvatarSelection = (avatarOpt: AvatarOption) => {
+    if (isAvatarUnlocked(avatarOpt)) {
+      selectAvatar(avatarOpt.id);
+    } else {
+      // Optionally, provide feedback that the avatar is locked
+      // For now, it just won't select if locked due to styling and interaction prevention
+      console.log(`Avatar ${avatarOpt.name} is locked.`);
+    }
+  };
 
 
   return (
@@ -85,27 +109,45 @@ const ProfilePage: React.FC = () => {
       <section aria-labelledby="avatar-selection-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
         <h2 id="avatar-selection-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-6 text-center">Escolha seu Avatar</h2>
         <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6">
-          {AVATAR_OPTIONS.map((avatarOpt: AvatarOption) => (
-            <div
-              key={avatarOpt.id}
-              onClick={() => selectAvatar(avatarOpt.id)}
-              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && selectAvatar(avatarOpt.id)}
-              role="button"
-              tabIndex={0}
-              aria-pressed={(avatarId || DEFAULT_AVATAR_ID) === avatarOpt.id}
-              aria-label={`Selecionar avatar ${avatarOpt.id}`}
-              className={`p-2 rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-500 focus:ring-opacity-75
-                ${(avatarId || DEFAULT_AVATAR_ID) === avatarOpt.id ? 'ring-4 ring-yellow-400 bg-slate-700' : 'bg-slate-700/50 hover:bg-slate-700'}`}
-            >
-              <img
-                src={avatarOpt.profileImageUrl}
-                alt="" // Alt text is now handled by aria-label on the div for screen readers
-                className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-md"
-                loading="lazy"
-              />
-              {/* Name display removed as per request */}
-            </div>
-          ))}
+          {AVATAR_OPTIONS.map((avatarOpt: AvatarOption) => {
+            const unlocked = isAvatarUnlocked(avatarOpt);
+            const isSelected = (avatarId || DEFAULT_AVATAR_ID) === avatarOpt.id;
+            
+            let avatarClasses = `p-2 rounded-lg transition-all duration-200 ease-in-out transform relative focus:outline-none focus:ring-4 focus:ring-opacity-75 `;
+            if (unlocked) {
+              avatarClasses += `cursor-pointer hover:scale-105 ${isSelected ? 'ring-4 ring-yellow-400 bg-slate-700' : 'bg-slate-700/50 hover:bg-slate-700 focus:ring-yellow-500'}`;
+            } else {
+              avatarClasses += `cursor-not-allowed bg-slate-600 focus:ring-slate-500`;
+            }
+
+            return (
+              <div
+                key={avatarOpt.id}
+                onClick={() => unlocked && handleAvatarSelection(avatarOpt)}
+                onKeyDown={(e) => unlocked && (e.key === 'Enter' || e.key === ' ') && handleAvatarSelection(avatarOpt)}
+                role="button"
+                tabIndex={unlocked ? 0 : -1}
+                aria-pressed={isSelected}
+                aria-label={`Selecionar avatar ${avatarOpt.name}${!unlocked ? ' (Bloqueado)' : ''}`}
+                className={avatarClasses}
+                title={!unlocked ? `${avatarOpt.name} (Bloqueado - Requer Pokémon do Líder ${avatarOpt.gymLeaderId ? GYM_LEADERS.find(l=>l.id===avatarOpt.gymLeaderId)?.name : ''})` : avatarOpt.name}
+              >
+                <img
+                  src={avatarOpt.profileImageUrl}
+                  alt="" // Alt is on parent for screen readers
+                  className={`w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-md ${!unlocked ? 'filter grayscale' : ''}`}
+                  loading="lazy"
+                />
+                {!unlocked && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-md">
+                    <span className="text-3xl" role="img" aria-label="Bloqueado">🔒</span>
+                  </div>
+                )}
+                {/* Visual indicator for name, if desired */}
+                {/* <p className={`text-center text-xs mt-1 ${isSelected && unlocked ? 'text-yellow-300' : 'text-slate-400'}`}>{avatarOpt.name}</p> */}
+              </div>
+            );
+          })}
         </div>
       </section>
 

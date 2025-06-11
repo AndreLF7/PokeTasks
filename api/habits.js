@@ -45,13 +45,10 @@ const UserProfileSchema = new mongoose.Schema({
   experiencePoints: Number,
   shareHabitsPublicly: { type: Boolean, default: false },
   lastLevelRewardClaimed: { type: Number, default: 1 },
-  maxHabitSlots: { type: Number, default: 10 },
-  avatarId: { type: String, default: 'red' }, // Added avatarId with a default
-  // New fields for Shared Habits
-  sharedHabitStreaks: { type: Map, of: Number, default: {} }, // Stores partnerUsername: streakCount
-  lastSharedHabitCompletionResetDate: { type: String, default: '' }, // YYYY-MM-DD
-  // IDs of shared habits this user is part of (active, pending etc.) will be managed by the SharedHabitModel itself,
-  // by querying where creatorUsername or inviteeUsername matches.
+  maxHabitSlots: { type: Number, default: 10 }, // Default changed to 10
+  avatarId: { type: String, default: 'red' }, 
+  sharedHabitStreaks: { type: Map, of: Number, default: {} }, 
+  lastSharedHabitCompletionResetDate: { type: String, default: '' }, 
 });
 
 const UserProfileModel = mongoose.models.UserProfile || mongoose.model('UserProfile', UserProfileSchema);
@@ -105,17 +102,17 @@ export default async function handler(req, res) {
       if (typeof profileData.lastLevelRewardClaimed === 'undefined') {
         profileData.lastLevelRewardClaimed = 1;
       }
-      if (typeof profileData.maxHabitSlots === 'undefined') {
-        profileData.maxHabitSlots = 10; 
-      }
-      if (typeof profileData.avatarId === 'undefined') { // Add default for avatarId
+      
+      profileData.maxHabitSlots = 10; // Explicitly set to 10 before saving
+
+      if (typeof profileData.avatarId === 'undefined') { 
         profileData.avatarId = 'red';
       }
       if (typeof profileData.sharedHabitStreaks === 'undefined') {
         profileData.sharedHabitStreaks = {};
       }
       if (typeof profileData.lastSharedHabitCompletionResetDate === 'undefined') {
-        profileData.lastSharedHabitCompletionResetDate = ''; // Or a function to get today's date string
+        profileData.lastSharedHabitCompletionResetDate = ''; 
       }
 
 
@@ -144,17 +141,17 @@ export default async function handler(req, res) {
       if (typeof profile.lastLevelRewardClaimed === 'undefined') {
         profile.lastLevelRewardClaimed = 1;
       }
-      if (typeof profile.maxHabitSlots === 'undefined') {
-        profile.maxHabitSlots = 10; 
-      }
-      if (typeof profile.avatarId === 'undefined') { // Add default for avatarId
+      
+      profile.maxHabitSlots = 10; // Explicitly set to 10 before sending to client
+
+      if (typeof profile.avatarId === 'undefined') { 
         profile.avatarId = 'red';
       }
       if (typeof profile.sharedHabitStreaks === 'undefined') {
         profile.sharedHabitStreaks = {};
       }
        if (typeof profile.lastSharedHabitCompletionResetDate === 'undefined') {
-        profile.lastSharedHabitCompletionResetDate = ''; // Or a function to get today's date string
+        profile.lastSharedHabitCompletionResetDate = ''; 
       }
 
 

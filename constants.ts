@@ -401,7 +401,7 @@ export const GYM_LEADERS: GymLeader[] = [
     badgeName: 'Boulder Badge',
     pokemon: [ { id: 74, name: 'Geodude' }, { id: 95, name: 'Onix' } ],
     imageUrl: BROCK_IMG,
-    silhouetteUrl: BROCK_IMG, // Will be filtered by CSS
+    silhouetteUrl: BROCK_IMG, 
     badgeUrl: BOULDER_BADGE
   },
   {
@@ -488,6 +488,62 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
     name: 'Leaf',
     profileImageUrl: 'https://archives.bulbagarden.net/media/upload/4/48/FireRed_LeafGreen_Leaf.png',
     navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/6/65/VSLeaf_Masters.png',
+  },
+  {
+    id: 'brock_avatar',
+    name: 'Brock',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/a/a6/Lets_Go_Pikachu_Eevee_Brock.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/7/75/VSBrock_Masters.png',
+    gymLeaderId: 'brock',
+  },
+  {
+    id: 'misty_avatar',
+    name: 'Misty',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/f/f6/Lets_Go_Pikachu_Eevee_Misty.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/0/05/VSMisty_Swimsuit_Masters.png',
+    gymLeaderId: 'misty',
+  },
+  {
+    id: 'lt_surge_avatar',
+    name: 'Lt. Surge',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/thumb/b/bc/Lets_Go_Pikachu_Eevee_Lt_Surge.png/739px-Lets_Go_Pikachu_Eevee_Lt_Surge.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/5/58/VSLt_Surge_Masters.png',
+    gymLeaderId: 'lt_surge',
+  },
+  {
+    id: 'erika_avatar',
+    name: 'Erika',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/4/47/Lets_Go_Pikachu_Eevee_Erika.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/8/86/VSErika_Palentines_2025_Masters.png',
+    gymLeaderId: 'erika',
+  },
+  {
+    id: 'koga_avatar',
+    name: 'Koga',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/f/f4/Lets_Go_Pikachu_Eevee_Koga.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/a/ad/VSKoga_Masters.png',
+    gymLeaderId: 'koga',
+  },
+  {
+    id: 'sabrina_avatar',
+    name: 'Sabrina',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/7/78/Lets_Go_Pikachu_Eevee_Sabrina.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/4/49/VSSabrina_Masters.png',
+    gymLeaderId: 'sabrina',
+  },
+  {
+    id: 'blaine_avatar',
+    name: 'Blaine',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/c/c8/Lets_Go_Pikachu_Eevee_Blaine.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/7/76/VSBlaine_Masters.png',
+    gymLeaderId: 'blaine',
+  },
+  {
+    id: 'giovanni_avatar',
+    name: 'Giovanni',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/0/03/USUM_Giovanni.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/c/cc/VSGiovanni_Classic_Masters.png',
+    gymLeaderId: 'giovanni',
   },
 ];
 
