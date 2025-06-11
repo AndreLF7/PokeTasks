@@ -23,7 +23,7 @@ import {
   GYM_LEADERS,
   LEVEL_THRESHOLDS,
   MAX_PLAYER_LEVEL,
-  MIN_LEVEL_FOR_SHARED_HABITS, // Added for logic
+  MIN_LEVEL_FOR_SHARED_HABITS, 
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants';
 
@@ -36,11 +36,10 @@ interface LevelInfo {
   isMaxLevel: boolean;
 }
 
-// Structure for managing shared habits data in context
 interface SharedHabitsState {
-  active: SharedHabit[]; // Full SharedHabit objects for active ones
-  pendingInvitationsReceived: SharedHabit[]; // Full SharedHabit objects where currentUser is invitee and status is 'pending_invitee_approval'
-  pendingInvitationsSent: SharedHabit[]; // Full SharedHabit objects where currentUser is creator and status is 'pending_invitee_approval'
+  active: SharedHabit[]; 
+  pendingInvitationsReceived: SharedHabit[]; 
+  pendingInvitationsSent: SharedHabit[]; 
   isLoading: boolean;
   error: string | null;
 }
@@ -67,10 +66,9 @@ interface UserContextType {
   claimLevelRewards: () => void;
   toastMessage: { id: string, text: string, type: 'info' | 'success' | 'error', leaderImageUrl?: string } | null;
   clearToastMessage: () => void;
-  setToastMessage: (text: string, type?: 'info' | 'success' | 'error', leaderImageUrl?: string) => void; // Expose setToastMessage
+  setToastMessage: (text: string, type?: 'info' | 'success' | 'error', leaderImageUrl?: string) => void; 
   calculatePlayerLevelInfo: (totalXP: number) => LevelInfo;
 
-  // Shared Habits placeholders
   sharedHabitsData: SharedHabitsState;
   fetchSharedHabitsData: () => Promise<void>;
   sendSharedHabitInvitation: (targetUsername: string, habitText: string) => Promise<{ success: boolean; message?: string }>;
@@ -309,13 +307,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       profile.lastLevelRewardClaimed = parseNumericField(profile.lastLevelRewardClaimed, 1);
       profile.maxHabitSlots = parseNumericField(profile.maxHabitSlots, INITIAL_MAX_HABIT_SLOTS);
 
-      // Initialize Shared Habit fields
       profile.sharedHabitStreaks = (typeof profile.sharedHabitStreaks === 'object' && profile.sharedHabitStreaks !== null && !Array.isArray(profile.sharedHabitStreaks))
         ? profile.sharedHabitStreaks
         : {};
       profile.lastSharedHabitCompletionResetDate = (typeof profile.lastSharedHabitCompletionResetDate === 'string' && profile.lastSharedHabitCompletionResetDate.match(/^\d{4}-\d{2}-\d{2}$/))
         ? profile.lastSharedHabitCompletionResetDate
-        : ""; // Or getTodayDateString() if reset should happen on first load
+        : getTodayDateString(); 
 
       return profile as UserProfile;
     } catch (error) {
@@ -326,7 +323,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
         experiencePoints: 0, shareHabitsPublicly: false,
         lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS,
-        sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: "",
+        sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
       };
     }
   }, []);
@@ -335,7 +332,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const todayLocalStr = getTodayDateString();
     let updatedProfile = { ...profile };
 
-    // Personal habits reset
     if (profile.lastResetDate !== todayLocalStr) {
         const previousDayCompletions = updatedProfile.dailyCompletions;
         const previousDayCompletionDateStr = updatedProfile.lastResetDate;
@@ -353,13 +349,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         updatedProfile.lastResetDate = todayLocalStr;
     }
 
-    // Shared habits completion flags reset logic will be handled by fetchSharedHabitsData or a dedicated reset function
-    // For now, if we stored a global reset date for shared habits on user profile:
     if (updatedProfile.lastSharedHabitCompletionResetDate !== todayLocalStr) {
-        // This indicates a global reset is needed. The actual reset of `creatorCompletedToday` etc.
-        // will happen within the SharedHabit objects, typically fetched from the backend.
-        // We might just update this date here to signify the day has rolled over for shared habits too.
         updatedProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
+        // The actual reset of individual shared habit flags (creatorCompletedToday etc.)
+        // happens on the backend or when fetchSharedHabitsData is called and processes them.
     }
     
     return updatedProfile;
@@ -375,36 +368,36 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, []);
 
   const fetchSharedHabitsData = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || !currentUser.username) {
+        setSharedHabitsData({ active: [], pendingInvitationsReceived: [], pendingInvitationsSent: [], isLoading: false, error: null });
+        return;
+    }
+    const playerLevelInfo = calculatePlayerLevelInfoInternal(currentUser.experiencePoints);
+    if (playerLevelInfo.level < MIN_LEVEL_FOR_SHARED_HABITS) {
+        setSharedHabitsData({ active: [], pendingInvitationsReceived: [], pendingInvitationsSent: [], isLoading: false, error: null });
+        return;
+    }
 
     setSharedHabitsData(prev => ({ ...prev, isLoading: true, error: null }));
     try {
-      // TODO: Replace with actual API call: const response = await fetch(`/api/sharedHabits?username=${currentUser.username}`);
-      // const data = await response.json(); if (!response.ok) throw new Error(data.message);
-      // setSharedHabitsData({ active: data.active, pendingInvitationsReceived: data.pendingReceived, pendingInvitationsSent: data.pendingSent, isLoading: false, error: null });
-      
-      // Simulate API response for now
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-      const today = getTodayDateString();
-      // This is placeholder data. In reality, this would come from the API and would have already handled daily resets.
-      const exampleActive: SharedHabit[] = [];
-      const examplePendingReceived: SharedHabit[] = [];
-      const examplePendingSent: SharedHabit[] = [];
-
+      const response = await fetch(`/api/sharedHabits?username=${encodeURIComponent(currentUser.username)}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch shared habits data from server.");
+      }
       setSharedHabitsData({
-        active: exampleActive,
-        pendingInvitationsReceived: examplePendingReceived,
-        pendingInvitationsSent: examplePendingSent,
+        active: data.active || [],
+        pendingInvitationsReceived: data.pendingInvitationsReceived || [],
+        pendingInvitationsSent: data.pendingInvitationsSent || [],
         isLoading: false,
         error: null,
       });
-
     } catch (err: any) {
       console.error("Failed to fetch shared habits:", err);
-      setSharedHabitsData(prev => ({ ...prev, isLoading: false, error: err.message || "Failed to load shared habits" }));
+      setSharedHabitsData(prev => ({ ...prev, isLoading: false, error: err.message || "Falha ao carregar hábitos compartilhados" }));
       setToastMessage(err.message || "Falha ao carregar hábitos compartilhados.", "error");
     }
-  }, [currentUser, setToastMessage]);
+  }, [currentUser?.username, currentUser?.experiencePoints, setToastMessage]);
 
 
   const loadUser = useCallback(() => {
@@ -436,29 +429,30 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setCurrentUser(userProfile);
       setLoading(false);
       if (userProfile) {
-        // fetchSharedHabitsData(); // Fetch shared habits after user is loaded
+        fetchSharedHabitsData(); 
       }
     }
-  }, [initializeProfileFields, handleDayRollover /*, fetchSharedHabitsData */]);
+  }, [initializeProfileFields, handleDayRollover, fetchSharedHabitsData]);
 
   useEffect(() => {
-    loadUser();
+    loadUser(); // Initial load
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'pokemonHabitUser') {
-        loadUser();
+        loadUser(); 
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [loadUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on mount to prevent infinite loop with loadUser dependencies
 
   useEffect(() => {
     if (currentUser && currentUser.username) {
-        // fetchSharedHabitsData(); // Also fetch if currentUser changes (e.g., after login)
+        fetchSharedHabitsData(); 
     }
-  }, [currentUser?.username /*, fetchSharedHabitsData */]);
+  }, [currentUser?.username, fetchSharedHabitsData]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -468,24 +462,26 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         let tempProfile = { ...currentUser };
 
         if (currentUser.lastResetDate !== todayLocalStr) {
-          tempProfile = handleDayRollover(tempProfile); // handleDayRollover now returns updated profile
+          tempProfile = handleDayRollover(tempProfile); 
           profileChanged = true;
         }
-        // Potentially re-fetch shared habits data if day rolled over for them
+        
         if (currentUser.lastSharedHabitCompletionResetDate !== todayLocalStr) {
-            // fetchSharedHabitsData(); // This will handle its own state updates for sharedHabitData
-            if (!profileChanged) { // if personal habits didn't change, we still need to update the global reset date on user profile if it's there
+            fetchSharedHabitsData(); 
+            if (!profileChanged) { 
                 tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
                 profileChanged = true;
+            } else { // if profileChanged was already true from normal habit reset, ensure this date is also set on tempProfile
+                 tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
             }
         }
         if (profileChanged) {
             updateUserProfile(tempProfile);
         }
       }
-    }, 60000); // Check every minute for day rollover
+    }, 60000); 
     return () => clearInterval(intervalId);
-  }, [currentUser, handleDayRollover, updateUserProfile /*, fetchSharedHabitsData */]);
+  }, [currentUser, handleDayRollover, updateUserProfile, fetchSharedHabitsData]);
 
   const login = async (username: string): Promise<{ success: boolean; message?: string }> => {
     setLoading(true);
@@ -505,8 +501,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
         
         setCurrentUser(userProfile);
-        setLoading(false);
-        // await fetchSharedHabitsData(); // Fetch after successful login
+        setLoading(false); // Set loading false before awaiting fetchSharedHabitsData
+        await fetchSharedHabitsData(); 
         return { success: true, message: "Perfil carregado da nuvem." };
       } else if (response.status === 404) {
         const storedUsersString = localStorage.getItem('allPokemonHabitUsers');
@@ -523,19 +519,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
           };
         } else {
-          // Ensure new fields are initialized for older profiles from local storage
-          userProfileData = initializeProfileFields(userProfileData); // Re-initialize to catch all defaults
+          userProfileData = initializeProfileFields(userProfileData); 
         }
         
-        let userProfile = initializeProfileFields(userProfileData); // Ensure all fields, including new ones
+        let userProfile = initializeProfileFields(userProfileData); 
         userProfile = handleDayRollover(userProfile);
 
         storedUsers[userProfile.username] = userProfile;
         localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
         localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
         setCurrentUser(userProfile);
-        setLoading(false);
-        // await fetchSharedHabitsData(); // Fetch after successful login
+        setLoading(false); // Set loading false before awaiting fetchSharedHabitsData
+        await fetchSharedHabitsData(); 
         return { success: true, message: "Novo perfil local criado." };
       } else {
         const errorData = await response.json();
@@ -679,14 +674,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
     
     if (!chosenEntry) {
-        const fallbackDetails = POKEMON_MASTER_LIST.find(p => p.id === 129); // Magikarp
+        const fallbackDetails = POKEMON_MASTER_LIST.find(p => p.id === 129); 
         if (!fallbackDetails) return null; 
         return { ...fallbackDetails, name: `Erro: Grupo Vazio`, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallbackDetails.id), caughtWithBallType: ballUsed, isShiny: false };
     }
 
     const pokemonBaseDetails = POKEMON_MASTER_LIST.find(p => p.id === chosenEntry!.id);
     if (!pokemonBaseDetails) {
-        const fallbackDetails = POKEMON_MASTER_LIST.find(p => p.id === 1); // Bulbasaur
+        const fallbackDetails = POKEMON_MASTER_LIST.find(p => p.id === 1); 
         if (!fallbackDetails) return null; 
         return { ...fallbackDetails, name: `Erro: ID ${chosenEntry!.id} Inválido`, instanceId: generateInstanceId(), caughtDate: new Date().toISOString(), spriteUrl: POKEMON_API_SPRITE_URL(fallbackDetails.id), caughtWithBallType: ballUsed, isShiny: false };
     }
@@ -893,8 +888,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       let userProfile = initializeProfileFields(data);
       userProfile = handleDayRollover(userProfile);
       setCurrentUser(userProfile);
-      setLoading(false);
-      // await fetchSharedHabitsData(); // Fetch after loading profile
+      setLoading(false); // Set loading false before awaiting fetchSharedHabitsData
+      await fetchSharedHabitsData(); 
       return { success: true, message: "Perfil carregado da nuvem!" };
     } catch (error: any) {
       setLoading(false);
@@ -1023,32 +1018,94 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   }, [currentUser, updateUserProfile, setToastMessage]);
 
-  // --- Shared Habit Function Placeholders ---
   const sendSharedHabitInvitation = async (targetUsername: string, habitText: string): Promise<{ success: boolean; message?: string }> => {
-    // TODO: Implement API call
-    console.log("Placeholder: sendSharedHabitInvitation", targetUsername, habitText);
-    setToastMessage("Funcionalidade de convite ainda não implementada.", "info");
-    return { success: false, message: "Não implementado" };
+    if (!currentUser) return { success: false, message: "Usuário não logado." };
+
+    try {
+      const response = await fetch('/api/sharedHabits/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorUsername: currentUser.username,
+          inviteeUsername: targetUsername,
+          habitText: habitText,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      await fetchSharedHabitsData(); // Refresh data on success
+      return { success: true, message: data.message || "Convite enviado com sucesso!" };
+    } catch (error: any) {
+      console.error("Error sending shared habit invitation:", error);
+      return { success: false, message: error.message || "Falha ao enviar convite." };
+    }
   };
 
-  const respondToSharedHabitInvitation = async (sharedHabitId: string, response: 'accept' | 'decline'): Promise<{ success: boolean; message?: string }> => {
-    // TODO: Implement API call
-    console.log("Placeholder: respondToSharedHabitInvitation", sharedHabitId, response);
-    setToastMessage("Funcionalidade de resposta a convite ainda não implementada.", "info");
+  const respondToSharedHabitInvitation = async (sharedHabitId: string, responseStatus: 'accept' | 'decline'): Promise<{ success: boolean; message?: string }> => {
+    if (!currentUser) return { success: false, message: "Usuário não logado." };
+    // TODO: Implement API call to PUT /api/sharedHabits/respond (or similar)
+    console.log("Placeholder: respondToSharedHabitInvitation", sharedHabitId, responseStatus);
+    setToastMessage(`Resposta a convite (${responseStatus}) ainda não implementada.`, "info");
+    // Example:
+    // try {
+    //   const apiResponse = await fetch(`/api/sharedHabits/respond/${sharedHabitId}`, {
+    //     method: 'PUT', // or POST
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ response: responseStatus, responderUsername: currentUser.username })
+    //   });
+    //   const data = await apiResponse.json();
+    //   if (!apiResponse.ok) throw new Error(data.message || 'Failed to respond to invitation');
+    //   await fetchSharedHabitsData();
+    //   return { success: true, message: data.message };
+    // } catch (error: any) {
+    //   return { success: false, message: error.message };
+    // }
     return { success: false, message: "Não implementado" };
   };
 
   const completeSharedHabit = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
-    // TODO: Implement API call and logic for joint completion rewards
+    if (!currentUser) return { success: false, message: "Usuário não logado." };
+    // TODO: Implement API call to POST /api/sharedHabits/complete (or similar)
     console.log("Placeholder: completeSharedHabit", sharedHabitId);
-    setToastMessage("Funcionalidade de completar hábito compartilhado ainda não implementada.", "info");
+    setToastMessage("Completar hábito compartilhado ainda não implementado.", "info");
+     // Example:
+    // try {
+    //   const apiResponse = await fetch(`/api/sharedHabits/complete/${sharedHabitId}`, {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ usernameCompleting: currentUser.username })
+    //   });
+    //   const data = await apiResponse.json();
+    //   if (!apiResponse.ok) throw new Error(data.message || 'Failed to complete shared habit');
+    //   await fetchSharedHabitsData(); // Also potentially update user profile for streaks/rewards
+    //   return { success: true, message: data.message };
+    // } catch (error: any) {
+    //   return { success: false, message: error.message };
+    // }
     return { success: false, message: "Não implementado" };
   };
   
   const cancelSentSharedHabitRequest = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
-    // TODO: Implement API call
+    if (!currentUser) return { success: false, message: "Usuário não logado." };
+    // TODO: Implement API call to DELETE /api/sharedHabits/cancel (or similar)
     console.log("Placeholder: cancelSentSharedHabitRequest", sharedHabitId);
-    setToastMessage("Funcionalidade de cancelar convite ainda não implementada.", "info");
+    setToastMessage("Cancelar convite enviado ainda não implementado.", "info");
+    // Example:
+    // try {
+    //   const apiResponse = await fetch(`/api/sharedHabits/cancel/${sharedHabitId}`, {
+    //     method: 'DELETE', // or POST with a specific action
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ cancellerUsername: currentUser.username }) // Ensure authorized
+    //   });
+    //   const data = await apiResponse.json();
+    //   if (!apiResponse.ok) throw new Error(data.message || 'Failed to cancel shared habit request');
+    //   await fetchSharedHabitsData();
+    //   return { success: true, message: data.message };
+    // } catch (error: any) {
+    //   return { success: false, message: error.message };
+    // }
     return { success: false, message: "Não implementado" };
   };
 

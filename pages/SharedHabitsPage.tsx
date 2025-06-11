@@ -2,67 +2,43 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../contexts/UserContext';
 import Modal from '../components/Modal';
-import { SharedHabitDisplayInfo, SharedHabit } from '../types';
+import { SharedHabit } from '../types'; // Use full SharedHabit type
 import { MIN_LEVEL_FOR_SHARED_HABITS, MAX_SHARED_HABITS_PER_PARTNER } from '../constants';
 
 const SharedHabitsPage: React.FC = () => {
   const { 
     currentUser, 
     calculatePlayerLevelInfo,
-    // Placeholder functions - will be implemented later
-    // sendSharedHabitInvitation, 
-    // respondToSharedHabitInvitation, 
-    // completeSharedHabit,
-    // cancelSentSharedHabitRequest,
-    // sharedHabitsData, // This will hold active, pending, sent habits
+    sendSharedHabitInvitation, 
+    respondToSharedHabitInvitation, 
+    completeSharedHabit,
+    cancelSentSharedHabitRequest,
+    sharedHabitsData, // Use this from context
+    fetchSharedHabitsData, // Use this from context
     setToastMessage 
   } = useUser();
 
-  const [isLoading, setIsLoading] = useState(true); // For initial data load
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [inviteeUsername, setInviteeUsername] = useState('');
-  const [habitText, setHabitText] = useState('');
-  
-  // Example state structure - this will be populated from sharedHabitsData from context
-  const [activeSharedHabits, setActiveSharedHabits] = useState<SharedHabitDisplayInfo[]>([]);
-  const [pendingInvitations, setPendingInvitations] = useState<SharedHabitDisplayInfo[]>([]);
-  const [sentRequests, setSentRequests] = useState<SharedHabitDisplayInfo[]>([]);
-
+  const [newSharedHabitText, setNewSharedHabitText] = useState(''); // Renamed for clarity
 
   const playerLevel = currentUser ? calculatePlayerLevelInfo(currentUser.experiencePoints).level : 0;
   const canAccessSharedHabits = playerLevel >= MIN_LEVEL_FOR_SHARED_HABITS;
 
   useEffect(() => {
-    if (!currentUser || !canAccessSharedHabits) {
-      setIsLoading(false);
-      return;
+    if (currentUser && canAccessSharedHabits) {
+      fetchSharedHabitsData(); // Fetch data when component mounts or user/access changes
     }
-    // TODO: Fetch shared habits data when context provides it
-    // For now, simulate loading
-    const timer = setTimeout(() => {
-        // Example Data (replace with actual data from context later)
-        // setActiveSharedHabits([
-        //   { id: 'sh1', partnerUsername: 'AshTest', habitText: 'Correr 5km juntos', status: 'active', isCurrentUserCreator: true},
-        // ]);
-        // setPendingInvitations([
-        //   { id: 'sh2', partnerUsername: 'MistyTest', habitText: 'Estudar TypeScript por 1h', status: 'pending_invitee_approval', isCurrentUserCreator: false },
-        // ]);
-        // setSentRequests([
-        //    { id: 'sh3', partnerUsername: 'BrockTest', habitText: 'Cozinhar uma refeição saudável', status: 'pending_invitee_approval', isCurrentUserCreator: true },
-        // ]);
-        setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [currentUser, canAccessSharedHabits]);
+  }, [currentUser, canAccessSharedHabits, fetchSharedHabitsData]);
 
   const handleOpenAddModal = () => {
     setInviteeUsername('');
-    setHabitText('');
+    setNewSharedHabitText('');
     setIsAddModalOpen(true);
   };
 
   const handleAddSharedHabit = async () => {
-    if (!currentUser || !inviteeUsername.trim() || !habitText.trim()) {
+    if (!currentUser || !inviteeUsername.trim() || !newSharedHabitText.trim()) {
       setToastMessage("Por favor, preencha o nome do treinador e a descrição do hábito.", "error");
       return;
     }
@@ -71,41 +47,45 @@ const SharedHabitsPage: React.FC = () => {
       return;
     }
 
-    // TODO: Implement API call via context: sendSharedHabitInvitation(inviteeUsername, habitText)
-    console.log(`Tentando convidar ${inviteeUsername} para o hábito: ${habitText}`);
-    // Simulating API call
-    // const result = await sendSharedHabitInvitation(inviteeUsername.trim(), habitText.trim());
-    // if (result.success) {
-    //   setToastMessage(`Convite enviado para ${inviteeUsername}!`, 'success');
-    //   setIsAddModalOpen(false);
-    //   // Refresh shared habits data
-    // } else {
-    //   setToastMessage(result.message || "Falha ao enviar convite.", 'error');
-    // }
-    setToastMessage(`Funcionalidade de convite ainda não implementada. Tentativa de convidar ${inviteeUsername}.`, 'info');
-    setIsAddModalOpen(false); // Close modal for now
+    const result = await sendSharedHabitInvitation(inviteeUsername.trim(), newSharedHabitText.trim());
+    if (result.success) {
+      setToastMessage(result.message || `Convite enviado para ${inviteeUsername}!`, 'success');
+      setIsAddModalOpen(false);
+      // fetchSharedHabitsData is called within sendSharedHabitInvitation on success
+    } else {
+      setToastMessage(result.message || "Falha ao enviar convite.", 'error');
+    }
   };
   
-  const handleRespondToInvitation = async (invitationId: string, response: 'accept' | 'decline') => {
-    // TODO: Call context: respondToSharedHabitInvitation(invitationId, response)
-    console.log(`Respondendo ao convite ${invitationId} com ${response}`);
-    setToastMessage(`Funcionalidade de resposta ainda não implementada. Resposta: ${response}`, 'info');
-    // Refresh data
+  const handleRespond = async (invitationId: string, response: 'accept' | 'decline') => {
+    const result = await respondToSharedHabitInvitation(invitationId, response);
+    if (result.success) {
+        setToastMessage(result.message || "Resposta enviada!", "success");
+    } else {
+        setToastMessage(result.message || "Falha ao enviar resposta.", "error");
+    }
+    // Data is refreshed within respondToSharedHabitInvitation
   };
 
-  const handleCompleteSharedHabit = async (sharedHabitId: string) => {
-    // TODO: Call context: completeSharedHabit(sharedHabitId)
-    // This will require a confirmation modal similar to personal habits
-    console.log(`Completando hábito compartilhado ${sharedHabitId}`);
-    setToastMessage('Funcionalidade de completar hábito compartilhado ainda não implementada.', 'info');
-    // Refresh data
+  const handleComplete = async (sharedHabitId: string) => {
+    // TODO: Open confirmation modal first
+    const result = await completeSharedHabit(sharedHabitId);
+     if (result.success) {
+        setToastMessage(result.message || "Hábito marcado como completo!", "success");
+    } else {
+        setToastMessage(result.message || "Falha ao marcar hábito.", "error");
+    }
+    // Data is refreshed within completeSharedHabit
   };
   
-  const handleCancelSentRequest = async (requestId: string) => {
-    // TODO: Call context: cancelSentSharedHabitRequest(requestId)
-    console.log(`Cancelando convite enviado ${requestId}`);
-    setToastMessage('Funcionalidade de cancelar convite enviado ainda não implementada.', 'info');
-    // Refresh data
+  const handleCancelRequest = async (requestId: string) => {
+    const result = await cancelSentSharedHabitRequest(requestId);
+    if (result.success) {
+        setToastMessage(result.message || "Convite cancelado.", "success");
+    } else {
+        setToastMessage(result.message || "Falha ao cancelar convite.", "error");
+    }
+    // Data is refreshed within cancelSentSharedHabitRequest
   };
 
 
@@ -117,7 +97,7 @@ const SharedHabitsPage: React.FC = () => {
     return (
       <div className="text-center py-10 px-6 bg-slate-800 rounded-lg shadow-xl">
         <img 
-            src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/79.png" // Slowpoke
+            src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/79.png" 
             alt="Slowpoke Confuso" 
             className="mx-auto mb-6 rounded-full w-40 h-40 object-cover border-4 border-slate-700 shadow-lg" 
         />
@@ -131,9 +111,25 @@ const SharedHabitsPage: React.FC = () => {
     );
   }
   
-  if (isLoading) {
+  if (sharedHabitsData.isLoading) {
     return <p className="text-center text-xl py-10 text-yellow-400 animate-pulse">Carregando seus hábitos compartilhados...</p>;
   }
+  
+  if (sharedHabitsData.error) {
+    return (
+        <div className="text-center py-10 bg-red-800 bg-opacity-50 p-6 rounded-lg">
+            <p className="text-xl text-red-300">Erro ao carregar Hábitos Compartilhados</p>
+            <p className="text-slate-400 mt-2">{sharedHabitsData.error}</p>
+            <button 
+                onClick={() => fetchSharedHabitsData()}
+                className="mt-4 bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-semibold py-2 px-4 rounded"
+            >
+                Tentar Novamente
+            </button>
+        </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8">
@@ -151,55 +147,62 @@ const SharedHabitsPage: React.FC = () => {
         </button>
       </header>
       
-      {/* Active Shared Habits */}
       <section aria-labelledby="active-shared-habits-heading">
         <h2 id="active-shared-habits-heading" className="text-2xl font-semibold text-yellow-300 mb-3">Minhas Colaborações Ativas</h2>
-        {activeSharedHabits.length > 0 ? (
+        {sharedHabitsData.active.length > 0 ? (
           <ul className="space-y-3">
-            {activeSharedHabits.map(habit => (
+            {sharedHabitsData.active.map(habit => {
+              const partnerUsername = habit.creatorUsername === currentUser.username ? habit.inviteeUsername : habit.creatorUsername;
+              const amICreator = habit.creatorUsername === currentUser.username;
+              const myCompletionStatus = amICreator ? habit.creatorCompletedToday : habit.inviteeCompletedToday;
+              const partnerCompletionStatus = amICreator ? habit.inviteeCompletedToday : habit.creatorCompletedToday;
+
+              return (
               <li key={habit.id} className="bg-slate-800 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
                 <p className="text-slate-200 font-medium">{habit.habitText}</p>
-                <p className="text-sm text-slate-400">Com: <span className="font-semibold text-yellow-200">{habit.partnerUsername}</span></p>
-                {/* TODO: Add completion status display and complete button */}
-                 <p className="text-xs text-slate-500 mt-1">Sua conclusão: {currentUser?.username === habit.partnerUsername ? "N/A (Invited)" : "Pendente"}</p>
-                 <p className="text-xs text-slate-500">Conclusão de {habit.partnerUsername}: Pendente</p>
+                <p className="text-sm text-slate-400">Com: <span className="font-semibold text-yellow-200">{partnerUsername}</span></p>
+                <div className="mt-2 text-xs">
+                    <p className={myCompletionStatus ? "text-green-400" : "text-slate-400"}>Sua conclusão hoje: {myCompletionStatus ? "Sim" : "Não"}</p>
+                    <p className={partnerCompletionStatus ? "text-green-400" : "text-slate-400"}>Conclusão de {partnerUsername} hoje: {partnerCompletionStatus ? "Sim" : "Não"}</p>
+                </div>
                  <button 
-                    onClick={() => handleCompleteSharedHabit(habit.id)}
+                    onClick={() => handleComplete(habit.id)}
                     className="mt-2 text-xs bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded disabled:opacity-50"
-                    disabled={false /* TODO: Logic to disable if already completed by current user */}
+                    disabled={myCompletionStatus}
+                    aria-label={`Marcar hábito '${habit.habitText}' como feito`}
                 >
-                    Marcar como Feito
+                    {myCompletionStatus ? "Feito Hoje!" : "Marcar como Feito"}
                 </button>
-                 <p className="text-xs text-slate-500 mt-1">Sequência com {habit.partnerUsername}: {currentUser?.sharedHabitStreaks[habit.partnerUsername] || 0} dias</p>
+                 <p className="text-xs text-slate-500 mt-1">Sequência com {partnerUsername}: {currentUser?.sharedHabitStreaks[partnerUsername] || 0} dias</p>
               </li>
-            ))}
+            );
+            })}
           </ul>
         ) : (
           <p className="text-slate-400 italic">Nenhum hábito compartilhado ativo no momento.</p>
         )}
       </section>
 
-      {/* Pending Invitations (Received) */}
       <section aria-labelledby="pending-invitations-heading">
         <h2 id="pending-invitations-heading" className="text-2xl font-semibold text-yellow-300 mb-3">Convites Pendentes</h2>
-        {pendingInvitations.length > 0 ? (
+        {sharedHabitsData.pendingInvitationsReceived.length > 0 ? (
           <ul className="space-y-3">
-            {pendingInvitations.map(invite => (
+            {sharedHabitsData.pendingInvitationsReceived.map(invite => (
               <li key={invite.id} className="bg-slate-800 p-4 rounded-lg shadow">
                 <p className="text-slate-200">{invite.habitText}</p>
-                <p className="text-sm text-slate-400">De: <span className="font-semibold text-yellow-200">{invite.partnerUsername}</span></p>
+                <p className="text-sm text-slate-400">De: <span className="font-semibold text-yellow-200">{invite.creatorUsername}</span></p>
                 <div className="mt-2 space-x-2">
                   <button 
-                    onClick={() => handleRespondToInvitation(invite.id, 'accept')}
+                    onClick={() => handleRespond(invite.id, 'accept')}
                     className="text-xs bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded"
-                    aria-label={`Aceitar convite de ${invite.partnerUsername} para o hábito ${invite.habitText}`}
+                    aria-label={`Aceitar convite de ${invite.creatorUsername} para o hábito ${invite.habitText}`}
                     >
                     Aceitar
                   </button>
                   <button 
-                    onClick={() => handleRespondToInvitation(invite.id, 'decline')}
+                    onClick={() => handleRespond(invite.id, 'decline')}
                     className="text-xs bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded"
-                    aria-label={`Recusar convite de ${invite.partnerUsername} para o hábito ${invite.habitText}`}
+                    aria-label={`Recusar convite de ${invite.creatorUsername} para o hábito ${invite.habitText}`}
                     >
                     Recusar
                   </button>
@@ -212,19 +215,18 @@ const SharedHabitsPage: React.FC = () => {
         )}
       </section>
 
-      {/* Sent Requests (Pending Invitee Approval) */}
       <section aria-labelledby="sent-requests-heading">
         <h2 id="sent-requests-heading" className="text-2xl font-semibold text-yellow-300 mb-3">Convites Enviados</h2>
-        {sentRequests.length > 0 ? (
+        {sharedHabitsData.pendingInvitationsSent.length > 0 ? (
           <ul className="space-y-3">
-            {sentRequests.map(request => (
+            {sharedHabitsData.pendingInvitationsSent.map(request => (
               <li key={request.id} className="bg-slate-800 p-4 rounded-lg shadow">
                 <p className="text-slate-200">{request.habitText}</p>
-                <p className="text-sm text-slate-400">Para: <span className="font-semibold text-yellow-200">{request.partnerUsername}</span> (Aguardando resposta)</p>
+                <p className="text-sm text-slate-400">Para: <span className="font-semibold text-yellow-200">{request.inviteeUsername}</span> (Aguardando resposta)</p>
                  <button 
-                    onClick={() => handleCancelSentRequest(request.id)}
+                    onClick={() => handleCancelRequest(request.id)}
                     className="mt-2 text-xs bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded"
-                    aria-label={`Cancelar convite enviado para ${request.partnerUsername} sobre o hábito ${request.habitText}`}
+                    aria-label={`Cancelar convite enviado para ${request.inviteeUsername} sobre o hábito ${request.habitText}`}
                     >
                     Cancelar Convite
                 </button>
@@ -236,7 +238,6 @@ const SharedHabitsPage: React.FC = () => {
         )}
       </section>
 
-      {/* Add Shared Habit Modal */}
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Convidar para Hábito Compartilhado">
         <form onSubmit={(e) => { e.preventDefault(); handleAddSharedHabit(); }} className="space-y-4">
           <div>
@@ -260,8 +261,8 @@ const SharedHabitsPage: React.FC = () => {
             <input
               type="text"
               id="habitText"
-              value={habitText}
-              onChange={(e) => setHabitText(e.target.value)}
+              value={newSharedHabitText}
+              onChange={(e) => setNewSharedHabitText(e.target.value)}
               className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 focus:ring-yellow-500 focus:border-yellow-500"
               placeholder="Ex: Treinar Pokémon por 30 minutos"
               required
