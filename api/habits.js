@@ -46,6 +46,7 @@ const UserProfileSchema = new mongoose.Schema({
   shareHabitsPublicly: { type: Boolean, default: false },
   lastLevelRewardClaimed: { type: Number, default: 1 },
   maxHabitSlots: { type: Number, default: 10 },
+  avatarId: { type: String, default: 'red' }, // Added avatarId with a default
   // New fields for Shared Habits
   sharedHabitStreaks: { type: Map, of: Number, default: {} }, // Stores partnerUsername: streakCount
   lastSharedHabitCompletionResetDate: { type: String, default: '' }, // YYYY-MM-DD
@@ -107,6 +108,9 @@ export default async function handler(req, res) {
       if (typeof profileData.maxHabitSlots === 'undefined') {
         profileData.maxHabitSlots = 10; 
       }
+      if (typeof profileData.avatarId === 'undefined') { // Add default for avatarId
+        profileData.avatarId = 'red';
+      }
       if (typeof profileData.sharedHabitStreaks === 'undefined') {
         profileData.sharedHabitStreaks = {};
       }
@@ -142,6 +146,9 @@ export default async function handler(req, res) {
       }
       if (typeof profile.maxHabitSlots === 'undefined') {
         profile.maxHabitSlots = 10; 
+      }
+      if (typeof profile.avatarId === 'undefined') { // Add default for avatarId
+        profile.avatarId = 'red';
       }
       if (typeof profile.sharedHabitStreaks === 'undefined') {
         profile.sharedHabitStreaks = {};

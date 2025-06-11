@@ -68,6 +68,7 @@ export interface UserProfile {
   shareHabitsPublicly?: boolean; // Added for sharing habits preference
   lastLevelRewardClaimed: number; // Tracks the last level for which rewards were claimed
   maxHabitSlots: number; // Tracks the maximum number of habits the user can have
+  avatarId?: string; // Added to store the selected avatar ID
 
   // Fields for Shared Habits
   sharedHabitStreaks: Record<string, number>; // e.g., { "partnerUsername": 5 }
@@ -123,4 +124,11 @@ export interface GymLeader {
   imageUrl: string;
   silhouetteUrl: string;
   badgeUrl: string;
+}
+
+export interface AvatarOption {
+  id: string;
+  name: string;
+  profileImageUrl: string;
+  navbarSpriteUrl: string;
 }

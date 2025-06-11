@@ -11,14 +11,14 @@ const UserProfileModel = mongoose.models.UserProfile || mongoose.model('UserProf
 
 
 const SharedHabitSchema = new mongoose.Schema({
-  creatorUsername: { type: String, required: true, index: true },
-  inviteeUsername: { type: String, required: true, index: true },
-  habitText: { type: String, required: true, maxlength: 100 },
-  status: { 
-    type: String, 
-    required: true, 
-    enum: ['pending_invitee_approval', 'active', 'declined_invitee', 'cancelled_creator', 'archived'], 
-    default: 'pending_invitee_approval' 
+  creatorUsername: { type: String, required: true, index: true, trim: true },
+  inviteeUsername: { type: String, required: true, index: true, trim: true },
+  habitText: { type: String, required: true, maxlength: 100, trim: true },
+  status: {
+    type: String,
+    required: true,
+    enum: ['pending_invitee_approval', 'active', 'declined_invitee', 'cancelled_creator', 'archived'],
+    default: 'pending_invitee_approval'
   },
   creatorCompletedToday: { type: Boolean, default: false },
   inviteeCompletedToday: { type: Boolean, default: false },
@@ -63,8 +63,8 @@ async function connectToDatabase() {
     console.log("MongoDB connected successfully for sharedHabits API.");
   } catch (error) {
     console.error("MongoDB connection error for sharedHabits API:", error);
-    isConnected = false; 
-    throw error; 
+    isConnected = false;
+    throw error;
   }
 }
 
@@ -85,17 +85,27 @@ export default async function handler(req, res) {
 
   if (method === 'POST' && req.url.includes('/invite')) { // Create/Invite to a shared habit
     try {
-      const { creatorUsername, inviteeUsername, habitText } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      let { creatorUsername, inviteeUsername, habitText } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
       if (!creatorUsername || !inviteeUsername || !habitText) {
         return res.status(400).json({ message: 'Creator, invitee, and habit text are required.' });
       }
+      // Values will be trimmed by Mongoose due to `trim: true` in schema, but good to be aware.
+      creatorUsername = creatorUsername.trim();
+      inviteeUsername = inviteeUsername.trim();
+      habitText = habitText.trim();
+
+
       if (creatorUsername === inviteeUsername) {
         return res.status(400).json({ message: 'Cannot create a shared habit with oneself.' });
       }
        if (habitText.length > 100) {
         return res.status(400).json({ message: 'Habit text cannot exceed 100 characters.' });
       }
+      if (habitText.length === 0) {
+        return res.status(400).json({ message: 'Habit text cannot be empty.' });
+      }
+
 
       // Check if invitee exists
       const inviteeExists = await UserProfileModel.findOne({ username: inviteeUsername }).lean();
@@ -137,6 +147,14 @@ export default async function handler(req, res) {
 
     } catch (error) {
       console.error('Error creating shared habit invitation:', error);
+      if (error.name === 'ValidationError') {
+        // Log more detailed validation error
+        let messages = [];
+        for (let field in error.errors) {
+          messages.push(error.errors[field].message);
+        }
+        return res.status(400).json({ message: 'Validation Error: ' + messages.join(', ') });
+      }
       return res.status(500).json({ message: 'Falha ao criar convite para hábito compartilhado.' });
     }
   } else if (method === 'GET') { // Fetch shared habits for a user
@@ -150,7 +168,7 @@ export default async function handler(req, res) {
             $or: [{ creatorUsername: username }, { inviteeUsername: username }],
             status: { $ne: 'archived' } // Don't fetch archived ones by default
         }).sort({ createdAt: -1 }).lean();
-        
+
         // Lazy reset completion flags if day rolled over
         const habitsToUpdate = [];
         for (const habit of sharedHabits) {
@@ -161,14 +179,14 @@ export default async function handler(req, res) {
                 habit.lastCompletionResetDate = today;
                 habitsToUpdate.push(
                     SharedHabitModel.updateOne(
-                        { _id: habit._id }, 
-                        { 
-                            $set: { 
-                                creatorCompletedToday: false, 
+                        { _id: habit._id },
+                        {
+                            $set: {
+                                creatorCompletedToday: false,
                                 inviteeCompletedToday: false,
                                 lastRewardGrantedDate: '',
-                                lastCompletionResetDate: today 
-                            } 
+                                lastCompletionResetDate: today
+                            }
                         }
                     )
                 );

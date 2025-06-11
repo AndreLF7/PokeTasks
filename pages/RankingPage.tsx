@@ -1,11 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom'; // Import Link
+import { AVATAR_OPTIONS, DEFAULT_AVATAR_ID } from '../constants'; // Import avatar constants
 
 interface TrainerRankingInfo {
   username: string;
   uniquePokemonCount: number;
   rank?: number;
+  avatarId?: string; // Added avatarId
 }
 
 const RankingPage: React.FC = () => {
@@ -97,27 +99,42 @@ const RankingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {rankings.map((trainer) => (
-                  <tr key={trainer.username} className="hover:bg-slate-750 transition-colors">
-                    <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm md:text-base text-slate-200">
-                      <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-600 mx-auto">
-                         {getRankMedal(trainer.rank)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base font-medium text-slate-100">
-                      <Link 
-                        to={`/trainer/${encodeURIComponent(trainer.username)}`} 
-                        className="hover:text-yellow-400 hover:underline"
-                        title={`Ver perfil de ${trainer.username}`}
-                      >
-                        {trainer.username}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base text-green-400 font-semibold">
-                      {trainer.uniquePokemonCount}
-                    </td>
-                  </tr>
-                ))}
+                {rankings.map((trainer) => {
+                  const trainerAvatar = AVATAR_OPTIONS.find(av => av.id === trainer.avatarId) || 
+                                      AVATAR_OPTIONS.find(av => av.id === DEFAULT_AVATAR_ID) || 
+                                      AVATAR_OPTIONS[0];
+                  return (
+                    <tr key={trainer.username} className="hover:bg-slate-750 transition-colors">
+                      <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm md:text-base text-slate-200">
+                        <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-600 mx-auto">
+                           {getRankMedal(trainer.rank)}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base font-medium text-slate-100">
+                        <div className="flex items-center space-x-2">
+                          {trainerAvatar && (
+                            <img 
+                              src={trainerAvatar.navbarSpriteUrl} 
+                              alt={`${trainer.username} avatar`} 
+                              className="h-7 w-7 rounded-full object-contain bg-slate-700 p-0.5" 
+                              loading="lazy"
+                            />
+                          )}
+                          <Link 
+                            to={`/trainer/${encodeURIComponent(trainer.username)}`} 
+                            className="hover:text-yellow-400 hover:underline"
+                            title={`Ver perfil de ${trainer.username}`}
+                          >
+                            {trainer.username}
+                          </Link>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs sm:text-sm md:text-base text-green-400 font-semibold">
+                        {trainer.uniquePokemonCount}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

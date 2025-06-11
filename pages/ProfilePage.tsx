@@ -4,14 +4,15 @@ import { useUser } from '../contexts/UserContext';
 import Modal from '../components/Modal'; // Import Modal
 import {
     POKEMON_MASTER_LIST,
-    // LEVEL_THRESHOLDS, // No longer directly needed here
-    // MAX_PLAYER_LEVEL, // No longer directly needed here
+    AVATAR_OPTIONS, // Import avatar options
+    DEFAULT_AVATAR_ID, // Import default avatar ID
 } from '../constants';
+import type { AvatarOption } from '../types'; // Import AvatarOption type
 
 // LevelInfo interface is now managed by UserContext
 
 const ProfilePage: React.FC = () => {
-  const { currentUser, saveProfileToCloud, loadProfileFromCloud, claimLevelRewards, calculatePlayerLevelInfo } = useUser();
+  const { currentUser, saveProfileToCloud, loadProfileFromCloud, claimLevelRewards, calculatePlayerLevelInfo, selectAvatar } = useUser();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [cloudMessage, setCloudMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -26,7 +27,7 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  const { username, caughtPokemon, pokeBalls, greatBalls, ultraBalls, masterBalls, habits, experiencePoints, dailyStreak, dailyCompletions, lastLevelRewardClaimed } = currentUser;
+  const { username, caughtPokemon, pokeBalls, greatBalls, ultraBalls, masterBalls, habits, experiencePoints, dailyStreak, dailyCompletions, lastLevelRewardClaimed, avatarId } = currentUser;
 
   const totalPokemonCaught = caughtPokemon.length;
   const uniquePokemonSpeciesCaught = new Set(caughtPokemon.map(p => p.id)).size;
@@ -35,6 +36,9 @@ const ProfilePage: React.FC = () => {
 
   const levelInfo = calculatePlayerLevelInfo(experiencePoints);
   const canClaimLevelRewards = levelInfo.level > (lastLevelRewardClaimed || 1);
+
+  const currentSelectedAvatar = AVATAR_OPTIONS.find(av => av.id === (avatarId || DEFAULT_AVATAR_ID)) || AVATAR_OPTIONS[0];
+
 
   const handleSaveToCloud = async () => {
     setIsSaving(true);
@@ -67,9 +71,44 @@ const ProfilePage: React.FC = () => {
   return (
     <div className="space-y-8 p-4 sm:p-6 md:p-8 bg-slate-900 min-h-screen">
       <header className="text-center mb-10">
-        <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">Perfil do Treinador</h1>
-        <p className="text-2xl sm:text-3xl text-slate-200 mt-2">{username}</p>
+        {currentSelectedAvatar && (
+            <img 
+                src={currentSelectedAvatar.profileImageUrl} 
+                alt={`${currentSelectedAvatar.name} Avatar`} 
+                className="w-32 h-32 sm:w-40 sm:h-40 object-contain mx-auto mb-4 rounded-lg bg-slate-700 p-1 shadow-lg"
+            />
+        )}
+        <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">{username}</h1>
       </header>
+
+      {/* Avatar Selection Section */}
+      <section aria-labelledby="avatar-selection-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
+        <h2 id="avatar-selection-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-6 text-center">Escolha seu Avatar</h2>
+        <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6">
+          {AVATAR_OPTIONS.map((avatarOpt: AvatarOption) => (
+            <div
+              key={avatarOpt.id}
+              onClick={() => selectAvatar(avatarOpt.id)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && selectAvatar(avatarOpt.id)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={(avatarId || DEFAULT_AVATAR_ID) === avatarOpt.id}
+              aria-label={`Selecionar avatar ${avatarOpt.id}`}
+              className={`p-2 rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-500 focus:ring-opacity-75
+                ${(avatarId || DEFAULT_AVATAR_ID) === avatarOpt.id ? 'ring-4 ring-yellow-400 bg-slate-700' : 'bg-slate-700/50 hover:bg-slate-700'}`}
+            >
+              <img
+                src={avatarOpt.profileImageUrl}
+                alt="" // Alt text is now handled by aria-label on the div for screen readers
+                className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-md"
+                loading="lazy"
+              />
+              {/* Name display removed as per request */}
+            </div>
+          ))}
+        </div>
+      </section>
+
 
       {/* Cloud Sync Section */}
       <section aria-labelledby="cloud-sync-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">

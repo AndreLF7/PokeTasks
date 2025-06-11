@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { MIN_LEVEL_FOR_SHARED_HABITS } from '../constants';
+import { MIN_LEVEL_FOR_SHARED_HABITS, AVATAR_OPTIONS, DEFAULT_AVATAR_ID } from '../constants';
 
 const Navbar: React.FC = () => {
   const { currentUser, logout, saveProfileToCloud, calculatePlayerLevelInfo } = useUser();
@@ -20,6 +20,11 @@ const Navbar: React.FC = () => {
   const playerLevel = currentUser ? calculatePlayerLevelInfo(currentUser.experiencePoints).level : 0;
   const canAccessSharedHabits = playerLevel >= MIN_LEVEL_FOR_SHARED_HABITS;
 
+  const selectedAvatar = currentUser 
+    ? AVATAR_OPTIONS.find(av => av.id === currentUser.avatarId) || AVATAR_OPTIONS.find(av => av.id === DEFAULT_AVATAR_ID) || AVATAR_OPTIONS[0]
+    : AVATAR_OPTIONS[0];
+
+
   const handleNavbarSave = async () => {
     setIsSavingNavbar(true);
     setNavbarSaveMessage(null);
@@ -35,8 +40,9 @@ const Navbar: React.FC = () => {
     <nav className="bg-slate-800 shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-3">
-          {/* Logo */}
+          {/* Logo and App Title */}
           <div className="flex items-center space-x-2">
+            {/* Avatar removed from here (desktop view beside title) */}
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Pokeball Icon" className="h-8 w-8"/>
             <NavLink to="/" onClick={closeMobileMenu} className="text-xl font-bold text-yellow-400">Pokémon Habits</NavLink>
           </div>
@@ -66,7 +72,7 @@ const Navbar: React.FC = () => {
             {currentUser && (
               <NavLink
                 to="/profile"
-                className={({ isActive }) => `${isActive ? 'text-yellow-400 font-semibold' : 'text-slate-300 hover:text-yellow-400'} transition-colors px-2 py-1 rounded-md`}
+                className={({ isActive }) => `${isActive ? 'text-yellow-400 font-semibold' : 'text-slate-300 hover:text-yellow-400'} transition-colors px-2 py-1 rounded-md flex items-center`}
                 title="Ver Perfil"
               >
                 {currentUser.username}
@@ -80,8 +86,9 @@ const Navbar: React.FC = () => {
             </button>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
+          {/* Mobile Menu Button with Avatar */}
+          <div className="md:hidden flex items-center space-x-2">
+            {selectedAvatar && <img src={selectedAvatar.navbarSpriteUrl} alt="Trainer Avatar" className="h-7 w-7 rounded-full object-contain bg-slate-700 p-0.5" />}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-slate-300 hover:text-yellow-400 focus:outline-none focus:text-yellow-400 p-1"
@@ -116,7 +123,7 @@ const Navbar: React.FC = () => {
               <hr className="border-slate-700 my-2"/>
               
               {currentUser && (
-                <NavLink to="/profile" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>
+                <NavLink to="/profile" className={({ isActive }) => `${isActive ? mobileActiveStyle : mobileInactiveStyle} flex items-center`} onClick={closeMobileMenu}>
                   Perfil ({currentUser.username})
                 </NavLink>
               )}

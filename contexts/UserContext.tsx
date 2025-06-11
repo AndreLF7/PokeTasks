@@ -23,7 +23,8 @@ import {
   GYM_LEADERS,
   LEVEL_THRESHOLDS,
   MAX_PLAYER_LEVEL,
-  MIN_LEVEL_FOR_SHARED_HABITS, 
+  MIN_LEVEL_FOR_SHARED_HABITS,
+  DEFAULT_AVATAR_ID, 
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants';
 
@@ -62,6 +63,7 @@ interface UserContextType {
   saveProfileToCloud: () => Promise<{ success: boolean; message: string }>;
   loadProfileFromCloud: (usernameToLoad?: string) => Promise<{ success: boolean; message: string }>;
   toggleShareHabitsPublicly: () => void;
+  selectAvatar: (avatarId: string) => void; // Added for avatar selection
   claimStreakRewards: () => void;
   claimLevelRewards: () => void;
   toastMessage: { id: string, text: string, type: 'info' | 'success' | 'error', leaderImageUrl?: string } | null;
@@ -300,7 +302,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         ? profile.lastResetDate
         : getTodayDateString();
 
-      delete profile.avatar;
+      profile.avatarId = typeof profile.avatarId === 'string' ? profile.avatarId : DEFAULT_AVATAR_ID; // Initialize avatarId
 
       profile.experiencePoints = parseNumericField(profile.experiencePoints, 0);
       profile.shareHabitsPublicly = typeof profile.shareHabitsPublicly === 'boolean' ? profile.shareHabitsPublicly : false;
@@ -322,7 +324,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
         dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
         experiencePoints: 0, shareHabitsPublicly: false,
-        lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS,
+        lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
         sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
       };
     }
@@ -515,7 +517,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
             dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
             experiencePoints: 0, shareHabitsPublicly: false,
-            lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS,
+            lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
             sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
           };
         } else {
@@ -901,6 +903,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (!currentUser) return;
     updateUserProfile({ ...currentUser, shareHabitsPublicly: !currentUser.shareHabitsPublicly, });
   };
+  
+  const selectAvatar = (avatarId: string) => {
+    if (!currentUser) return;
+    updateUserProfile({ ...currentUser, avatarId });
+  };
+
 
   const claimStreakRewards = () => {
     if (!currentUser || currentUser.dailyStreak <= (currentUser.lastStreakDayClaimedForReward || 0)) {
@@ -1115,7 +1123,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       currentUser, loading, login, logout, addHabit, confirmHabitCompletion, deleteHabit,
       catchFromPokeBall, catchFromGreatBall, catchFromUltraBall, catchFromMasterBall,
       releasePokemon, tradePokemon, updateUserProfile, saveProfileToCloud, loadProfileFromCloud,
-      toggleShareHabitsPublicly, claimStreakRewards, claimLevelRewards, 
+      toggleShareHabitsPublicly, selectAvatar, claimStreakRewards, claimLevelRewards, 
       toastMessage: toastMessageState, clearToastMessage, setToastMessage,
       calculatePlayerLevelInfo: calculatePlayerLevelInfoInternal,
       // Shared Habits

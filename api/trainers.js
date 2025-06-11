@@ -42,6 +42,7 @@ const UserProfileSchema = new mongoose.Schema({
   lastStreakUpdateDate: String, 
   completionHistory: [CompletionHistorySchema],
   experiencePoints: Number,
+  avatarId: { type: String, default: 'red' }, // Added avatarId
 });
 
 const UserProfileModel = mongoose.models.UserProfile || mongoose.model('UserProfile', UserProfileSchema);
@@ -79,13 +80,14 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const profiles = await UserProfileModel.find({}, 'username caughtPokemon').lean();
+      const profiles = await UserProfileModel.find({}, 'username caughtPokemon avatarId').lean();
       
       const trainerRankings = profiles.map(profile => {
         const uniquePokemonIds = new Set(profile.caughtPokemon.map(p => p.id));
         return {
           username: profile.username,
           uniquePokemonCount: uniquePokemonIds.size,
+          avatarId: profile.avatarId || 'red', // Ensure a default if somehow missing
         };
       });
       

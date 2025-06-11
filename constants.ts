@@ -1,8 +1,8 @@
 
-import { PokemonBase, TradeOffer, BallType, WeightedPokemonEntry, GymLeader } from './types';
+import { PokemonBase, TradeOffer, BallType, WeightedPokemonEntry, GymLeader, AvatarOption } from './types';
 
 // FIX: Re-export WeightedPokemonEntry so other modules importing from constants.ts can access it
-export type { WeightedPokemonEntry, GymLeader };
+export type { WeightedPokemonEntry, GymLeader, AvatarOption };
 
 export const INITIAL_MAX_HABIT_SLOTS = 10;
 export const POKEMON_API_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
@@ -475,3 +475,20 @@ export const GYM_LEADERS: GymLeader[] = [
     badgeUrl: EARTH_BADGE
   }
 ];
+
+export const AVATAR_OPTIONS: AvatarOption[] = [
+  {
+    id: 'red',
+    name: 'Red',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/8/83/FireRed_LeafGreen_Red.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/2/2c/VSRed_Masters.png',
+  },
+  {
+    id: 'leaf',
+    name: 'Leaf',
+    profileImageUrl: 'https://archives.bulbagarden.net/media/upload/4/48/FireRed_LeafGreen_Leaf.png',
+    navbarSpriteUrl: 'https://archives.bulbagarden.net/media/upload/6/65/VSLeaf_Masters.png',
+  },
+];
+
+export const DEFAULT_AVATAR_ID = 'red';
