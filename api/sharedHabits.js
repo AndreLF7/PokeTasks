@@ -82,6 +82,7 @@ export default async function handler(req, res) {
 
   const { method, url } = req;
   const today = getTodayDateStringLocal();
+  const pathname = url.split('?')[0]; // Use pathname for regex matching
 
   // URL Parsers
   const inviteRegex = /^\/api\/sharedHabits\/invite\/?$/;
@@ -90,7 +91,7 @@ export default async function handler(req, res) {
   const idActionRegex = /^\/api\/sharedHabits\/([a-zA-Z0-9]+)\/(respond|complete|cancel)$/;
 
 
-  if (method === 'POST' && inviteRegex.test(url)) {
+  if (method === 'POST' && inviteRegex.test(pathname)) { // Test against pathname
     try {
       let { creatorUsername, inviteeUsername, habitText } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       if (!creatorUsername || !inviteeUsername || !habitText) {
@@ -135,8 +136,9 @@ export default async function handler(req, res) {
       console.error('Error creating shared habit invitation:', error);
       return res.status(500).json({ message: 'Falha ao criar convite: ' + error.message });
     }
-  } else if (method === 'GET' && generalHabitsRegex.test(url)) {
+  } else if (method === 'GET' && generalHabitsRegex.test(pathname)) { // Test against pathname
     try {
+        // Use req.url here for new URL() as it contains the query string
         const queryParams = new URL(req.url, `http://${req.headers.host}`).searchParams;
         const username = queryParams.get('username');
 
@@ -177,7 +179,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ message: 'Falha ao buscar hábitos compartilhados: ' + error.message });
     }
   } else {
-    const idActionMatch = url.match(idActionRegex);
+    const idActionMatch = pathname.match(idActionRegex); // Test against pathname
     if (idActionMatch) {
       const sharedHabitId = idActionMatch[1];
       const action = idActionMatch[2];
@@ -288,9 +290,11 @@ export default async function handler(req, res) {
           return res.status(500).json({ message: 'Falha ao cancelar o convite: ' + error.message });
         }
       } else {
-        return res.status(405).json({ message: `Method ${method} not allowed for ${url}` });
+        // If idActionMatch was true, but method and action didn't match any above
+        return res.status(405).json({ message: `Method ${method} not allowed for action ${action} on ${pathname}` });
       }
     } else {
+      // Fallback for unmatched routes
       return res.status(404).json({ message: `Endpoint ${url} not found or method ${method} not allowed.` });
     }
   }
