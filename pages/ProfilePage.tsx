@@ -1,16 +1,22 @@
 
 import React, { useState, useMemo } from 'react';
 import { useUser } from '../contexts/UserContext';
-import Modal from '../components/Modal'; // Import Modal
+import Modal from '../components/Modal';
 import {
     POKEMON_MASTER_LIST,
-    AVATAR_OPTIONS, // Import avatar options
-    DEFAULT_AVATAR_ID, // Import default avatar ID
-    GYM_LEADERS, // Import GYM_LEADERS for unlock conditions
+    AVATAR_OPTIONS,
+    DEFAULT_AVATAR_ID,
+    GYM_LEADERS,
 } from '../constants';
-import type { AvatarOption, GymLeader } from '../types'; // Import AvatarOption and GymLeader types
+import type { AvatarOption, GymLeader } from '../types';
 
-// LevelInfo interface is now managed by UserContext
+// Pencil Icon SVG for edit indication
+const EditIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+  </svg>
+);
+
 
 const ProfilePage: React.FC = () => {
   const { currentUser, saveProfileToCloud, loadProfileFromCloud, claimLevelRewards, calculatePlayerLevelInfo, selectAvatar } = useUser();
@@ -18,6 +24,7 @@ const ProfilePage: React.FC = () => {
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [cloudMessage, setCloudMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isReloadConfirmModalOpen, setIsReloadConfirmModalOpen] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false); // State for avatar selection modal
 
 
   if (!currentUser) {
@@ -38,17 +45,17 @@ const ProfilePage: React.FC = () => {
   const levelInfo = calculatePlayerLevelInfo(experiencePoints);
   const canClaimLevelRewards = levelInfo.level > (lastLevelRewardClaimed || 1);
 
-  const currentSelectedAvatar = AVATAR_OPTIONS.find(av => av.id === (avatarId || DEFAULT_AVATAR_ID)) || AVATAR_OPTIONS[0];
+  const currentSelectedAvatarDetails = AVATAR_OPTIONS.find(av => av.id === (avatarId || DEFAULT_AVATAR_ID)) || AVATAR_OPTIONS[0];
   
   const caughtPokemonIdsSet = useMemo(() => new Set(currentUser.caughtPokemon.map(p => p.id)), [currentUser.caughtPokemon]);
 
   const isAvatarUnlocked = (avatarOpt: AvatarOption): boolean => {
     if (!avatarOpt.gymLeaderId) {
-      return true; // Avatars without a gymLeaderId are always unlocked (e.g., Red, Leaf)
+      return true; 
     }
     const leader = GYM_LEADERS.find(gl => gl.id === avatarOpt.gymLeaderId);
     if (!leader) {
-      return false; // Should not happen if constants are set up correctly
+      return false; 
     }
     return leader.pokemon.every(p => caughtPokemonIdsSet.has(p.id));
   };
@@ -75,19 +82,16 @@ const ProfilePage: React.FC = () => {
     closeReloadConfirmModal();
     setIsLoadingCloud(true);
     setCloudMessage(null);
-    const result = await loadProfileFromCloud(); // Uses current user's username by default
+    const result = await loadProfileFromCloud(); 
     setCloudMessage({ text: result.message, type: result.success ? 'success' : 'error' });
     setIsLoadingCloud(false);
     setTimeout(() => setCloudMessage(null), 5000);
   };
   
-  const handleAvatarSelection = (avatarOpt: AvatarOption) => {
+  const handleAvatarSelectionInModal = (avatarOpt: AvatarOption) => {
     if (isAvatarUnlocked(avatarOpt)) {
       selectAvatar(avatarOpt.id);
-    } else {
-      // Optionally, provide feedback that the avatar is locked
-      // For now, it just won't select if locked due to styling and interaction prevention
-      console.log(`Avatar ${avatarOpt.name} is locked.`);
+      setIsAvatarModalOpen(false); // Close modal after selection
     }
   };
 
@@ -95,27 +99,42 @@ const ProfilePage: React.FC = () => {
   return (
     <div className="space-y-8 p-4 sm:p-6 md:p-8 bg-slate-900 min-h-screen">
       <header className="text-center mb-10">
-        {currentSelectedAvatar && (
-            <img 
-                src={currentSelectedAvatar.profileImageUrl} 
-                alt={`${currentSelectedAvatar.name} Avatar`} 
-                className="w-32 h-32 sm:w-40 sm:h-40 object-contain mx-auto mb-4 rounded-lg bg-slate-700 p-1 shadow-lg"
-            />
-        )}
+         <div 
+          className="relative w-32 h-32 sm:w-40 sm:h-40 mx-auto mb-4 group cursor-pointer"
+          onClick={() => setIsAvatarModalOpen(true)}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsAvatarModalOpen(true)}
+          role="button"
+          tabIndex={0}
+          aria-label="Mudar avatar"
+          title="Mudar Avatar"
+        >
+          {currentSelectedAvatarDetails && (
+              <img 
+                  src={currentSelectedAvatarDetails.profileImageUrl} 
+                  alt={`${currentSelectedAvatarDetails.name} Avatar`} 
+                  className="w-full h-full object-contain rounded-lg bg-slate-700 p-1 shadow-lg transition-transform group-hover:scale-105"
+                  loading="lazy"
+              />
+          )}
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-300 rounded-lg">
+            <EditIcon className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          </div>
+        </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">{username}</h1>
       </header>
 
-      {/* Avatar Selection Section */}
-      <section aria-labelledby="avatar-selection-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
-        <h2 id="avatar-selection-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-6 text-center">Escolha seu Avatar</h2>
-        <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6">
-          {AVATAR_OPTIONS.map((avatarOpt: AvatarOption) => {
+      {/* Avatar Selection Modal */}
+      <Modal isOpen={isAvatarModalOpen} onClose={() => setIsAvatarModalOpen(false)} title="Escolha seu Avatar">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-2 max-h-[60vh] overflow-y-auto">
+          {AVATAR_OPTIONS.map((avatarOpt) => {
             const unlocked = isAvatarUnlocked(avatarOpt);
             const isSelected = (avatarId || DEFAULT_AVATAR_ID) === avatarOpt.id;
-            
-            let avatarClasses = `p-2 rounded-lg transition-all duration-200 ease-in-out transform relative focus:outline-none focus:ring-4 focus:ring-opacity-75 `;
+            const leaderForAvatar = avatarOpt.gymLeaderId ? GYM_LEADERS.find(l => l.id === avatarOpt.gymLeaderId) : null;
+            const unlockConditionText = leaderForAvatar ? `Requer Pokémon do Líder ${leaderForAvatar.name}` : 'Desbloqueado';
+
+            let avatarClasses = `p-2 rounded-lg transition-all duration-200 ease-in-out transform relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 `;
             if (unlocked) {
-              avatarClasses += `cursor-pointer hover:scale-105 ${isSelected ? 'ring-4 ring-yellow-400 bg-slate-700' : 'bg-slate-700/50 hover:bg-slate-700 focus:ring-yellow-500'}`;
+              avatarClasses += `cursor-pointer hover:scale-105 ${isSelected ? 'ring-yellow-400 bg-slate-600' : 'bg-slate-700/80 hover:bg-slate-700 focus:ring-yellow-500'}`;
             } else {
               avatarClasses += `cursor-not-allowed bg-slate-600 focus:ring-slate-500`;
             }
@@ -123,33 +142,40 @@ const ProfilePage: React.FC = () => {
             return (
               <div
                 key={avatarOpt.id}
-                onClick={() => unlocked && handleAvatarSelection(avatarOpt)}
-                onKeyDown={(e) => unlocked && (e.key === 'Enter' || e.key === ' ') && handleAvatarSelection(avatarOpt)}
+                onClick={() => unlocked && handleAvatarSelectionInModal(avatarOpt)}
+                onKeyDown={(e) => unlocked && (e.key === 'Enter' || e.key === ' ') && handleAvatarSelectionInModal(avatarOpt)}
                 role="button"
                 tabIndex={unlocked ? 0 : -1}
                 aria-pressed={isSelected}
                 aria-label={`Selecionar avatar ${avatarOpt.name}${!unlocked ? ' (Bloqueado)' : ''}`}
                 className={avatarClasses}
-                title={!unlocked ? `${avatarOpt.name} (Bloqueado - Requer Pokémon do Líder ${avatarOpt.gymLeaderId ? GYM_LEADERS.find(l=>l.id===avatarOpt.gymLeaderId)?.name : ''})` : avatarOpt.name}
+                title={!unlocked ? `${avatarOpt.name} (Bloqueado - ${unlockConditionText})` : avatarOpt.name}
               >
                 <img
                   src={avatarOpt.profileImageUrl}
-                  alt="" // Alt is on parent for screen readers
-                  className={`w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-md ${!unlocked ? 'filter grayscale' : ''}`}
+                  alt="" // Decorative, alt is on parent
+                  className={`w-24 h-24 object-contain rounded-md mx-auto ${!unlocked ? 'filter grayscale opacity-60' : ''}`}
                   loading="lazy"
                 />
+                <p className={`text-center text-xs mt-1 truncate ${isSelected && unlocked ? 'text-yellow-300 font-semibold' : 'text-slate-300'}`}>
+                  {avatarOpt.name}
+                </p>
                 {!unlocked && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-md">
-                    <span className="text-3xl" role="img" aria-label="Bloqueado">🔒</span>
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center bg-black bg-opacity-50 p-2 rounded-full">
+                    <span className="text-xl" role="img" aria-label="Bloqueado">🔒</span>
                   </div>
                 )}
-                {/* Visual indicator for name, if desired */}
-                {/* <p className={`text-center text-xs mt-1 ${isSelected && unlocked ? 'text-yellow-300' : 'text-slate-400'}`}>{avatarOpt.name}</p> */}
               </div>
             );
           })}
         </div>
-      </section>
+        <button
+            onClick={() => setIsAvatarModalOpen(false)}
+            className="mt-6 w-full bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+        >
+            Fechar
+        </button>
+      </Modal>
 
 
       {/* Cloud Sync Section */}
@@ -216,7 +242,6 @@ const ProfilePage: React.FC = () => {
         </div>
          {levelInfo.isMaxLevel && <p className="text-sm text-green-400 text-center mt-2">Parabéns por alcançar o nível máximo!</p>}
          
-         {/* Level Rewards Button */}
         <div className="mt-6 text-center">
             <button
                 onClick={claimLevelRewards}
@@ -266,7 +291,6 @@ const ProfilePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Confirmation Modal for Reload */}
       <Modal isOpen={isReloadConfirmModalOpen} onClose={closeReloadConfirmModal} title="Confirmar Recarga">
         <div className="text-center">
           <p className="text-lg text-slate-300 mb-6">
