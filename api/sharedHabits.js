@@ -69,7 +69,7 @@ const getTodayDateStringLocal = () => {
 };
 
 // Constants for shared habit rewards (can be moved to a shared constants file if needed)
-const XP_PER_SHARED_HABIT_JOINT_COMPLETION = 5; // Example XP
+const XP_PER_SHARED_HABIT_JOINT_COMPLETION = 5; 
 const POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION = 1;
 
 
@@ -289,6 +289,33 @@ export default async function handler(req, res) {
         } catch (error) {
           console.error('Error canceling shared habit invitation:', error);
           return res.status(500).json({ message: 'Falha ao cancelar o convite: ' + error.message });
+        }
+    } else if (action === 'delete' && sharedHabitIdQueryParam) { // New delete action
+        try {
+            const { deleterUsername } = reqBody;
+            if (!deleterUsername) return res.status(400).json({ message: 'Deleter username is required.' });
+
+            const habit = await SharedHabitModel.findById(sharedHabitIdQueryParam);
+            if (!habit) return res.status(404).json({ message: 'Hábito compartilhado não encontrado.' });
+            
+            if (habit.status !== 'active') {
+                 return res.status(400).json({ message: 'Apenas hábitos ativos podem ser excluídos desta forma.' });
+            }
+
+            if (habit.creatorUsername !== deleterUsername && habit.inviteeUsername !== deleterUsername) {
+                return res.status(403).json({ message: 'Você não faz parte deste hábito compartilhado.' });
+            }
+            
+            habit.status = 'archived'; // Mark as archived
+            await habit.save();
+            const { _id, ...restOfHabit } = habit.toObject();
+            return res.status(200).json({ message: 'Hábito compartilhado excluído (arquivado).', sharedHabit: { id: _id.toString(), ...restOfHabit } });
+        } catch (error) {
+            console.error('Error deleting shared habit:', error);
+            if (error.kind === 'ObjectId') {
+                 return res.status(400).json({ message: 'ID do hábito compartilhado inválido.' });
+            }
+            return res.status(500).json({ message: 'Falha ao excluir o hábito compartilhado: ' + error.message });
         }
     } else {
       return res.status(400).json({ message: 'Invalid PUT action or missing ID.' });

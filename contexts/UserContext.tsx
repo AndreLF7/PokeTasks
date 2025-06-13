@@ -25,8 +25,14 @@ import {
   MAX_PLAYER_LEVEL,
   MIN_LEVEL_FOR_SHARED_HABITS,
   DEFAULT_AVATAR_ID, 
+  // Constants for shared habit rewards (can be moved to a shared constants file if needed)
+  // XP_PER_SHARED_HABIT_JOINT_COMPLETION, // Defined in api/sharedHabits.js
+  // POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION, // Defined in api/sharedHabits.js
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants';
+
+const XP_PER_SHARED_HABIT_JOINT_COMPLETION = 5; 
+const POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION = 1;
 
 interface LevelInfo {
   level: number;
@@ -77,6 +83,7 @@ interface UserContextType {
   respondToSharedHabitInvitation: (sharedHabitId: string, response: 'accept' | 'decline') => Promise<{ success: boolean; message?: string }>;
   completeSharedHabit: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>;
   cancelSentSharedHabitRequest: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>;
+  deleteSharedHabit: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>; // New function
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -1104,14 +1111,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       await fetchSharedHabitsData(); 
 
       if (data.message && data.message.includes("Ambos completaram")) {
-         const XP_FROM_SHARED = 5; 
-         const POKEBALL_FROM_SHARED = 1; 
-         
          updateUserProfile({
             ...currentUser,
-            experiencePoints: currentUser.experiencePoints + XP_FROM_SHARED,
-            pokeBalls: currentUser.pokeBalls + POKEBALL_FROM_SHARED,
+            experiencePoints: currentUser.experiencePoints + XP_PER_SHARED_HABIT_JOINT_COMPLETION,
+            pokeBalls: currentUser.pokeBalls + POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION,
          });
+         setToastMessage(`Recompensa da Encrenca em Dobro: ${POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION} ${getTranslatedBallName('poke')} e ${XP_PER_SHARED_HABIT_JOINT_COMPLETION} XP obtidos!`, "success");
+      } else if (data.message) {
+        setToastMessage(data.message, "info");
       }
 
       return { success: true, message: data.message };
@@ -1140,6 +1147,24 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   };
 
+  const deleteSharedHabit = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
+    if (!currentUser) return { success: false, message: "Usuário não logado." };
+    try {
+      const apiResponse = await fetch(`/api/sharedHabits?action=delete&id=${sharedHabitId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleterUsername: currentUser.username }) 
+      });
+      const data = await apiResponse.json();
+      if (!apiResponse.ok) throw new Error(data.message || 'Falha ao excluir o hábito compartilhado.');
+      await fetchSharedHabitsData();
+      return { success: true, message: data.message };
+    } catch (error: any) {
+      console.error("Error deleting shared habit:", error);
+      return { success: false, message: error.message || "Falha ao excluir o hábito compartilhado." };
+    }
+  };
+
 
   return (
     <UserContext.Provider value={{
@@ -1152,6 +1177,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       // Shared Habits
       sharedHabitsData, fetchSharedHabitsData, sendSharedHabitInvitation,
       respondToSharedHabitInvitation, completeSharedHabit, cancelSentSharedHabitRequest,
+      deleteSharedHabit, // Added deleteSharedHabit
     }}>
       {children}
     </UserContext.Provider>

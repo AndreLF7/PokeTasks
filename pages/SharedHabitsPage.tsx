@@ -13,21 +13,28 @@ const SharedHabitsPage: React.FC = () => {
     respondToSharedHabitInvitation, 
     completeSharedHabit,
     cancelSentSharedHabitRequest,
-    sharedHabitsData, // Use this from context
-    fetchSharedHabitsData, // Use this from context
+    deleteSharedHabit, // Added delete function
+    sharedHabitsData, 
+    fetchSharedHabitsData, 
     setToastMessage 
   } = useUser();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [inviteeUsername, setInviteeUsername] = useState('');
-  const [newSharedHabitText, setNewSharedHabitText] = useState(''); // Renamed for clarity
+  const [newSharedHabitText, setNewSharedHabitText] = useState('');
+
+  // State for delete confirmation modal
+  const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
+  const [habitToDeleteId, setHabitToDeleteId] = useState<string | null>(null);
+  const [habitToDeleteText, setHabitToDeleteText] = useState<string>('');
+
 
   const playerLevel = currentUser ? calculatePlayerLevelInfo(currentUser.experiencePoints).level : 0;
   const canAccessSharedHabits = playerLevel >= MIN_LEVEL_FOR_SHARED_HABITS;
 
   useEffect(() => {
     if (currentUser && canAccessSharedHabits) {
-      fetchSharedHabitsData(); // Fetch data when component mounts or user/access changes
+      fetchSharedHabitsData(); 
     }
   }, [currentUser, canAccessSharedHabits, fetchSharedHabitsData]);
 
@@ -51,7 +58,6 @@ const SharedHabitsPage: React.FC = () => {
     if (result.success) {
       setToastMessage(result.message || `Convite enviado para ${inviteeUsername}!`, 'success');
       setIsAddModalOpen(false);
-      // fetchSharedHabitsData is called within sendSharedHabitInvitation on success
     } else {
       setToastMessage(result.message || "Falha ao enviar convite.", 'error');
     }
@@ -64,18 +70,18 @@ const SharedHabitsPage: React.FC = () => {
     } else {
         setToastMessage(result.message || "Falha ao enviar resposta.", "error");
     }
-    // Data is refreshed within respondToSharedHabitInvitation
   };
 
   const handleComplete = async (sharedHabitId: string) => {
-    // TODO: Open confirmation modal first
     const result = await completeSharedHabit(sharedHabitId);
      if (result.success) {
-        setToastMessage(result.message || "Hábito marcado como completo!", "success");
+        // Toast message for rewards is now handled within completeSharedHabit in UserContext
+        if (result.message && !result.message.includes("Ambos completaram")) { // Only show generic if no reward toast
+             setToastMessage(result.message || "Hábito marcado como completo!", "info");
+        }
     } else {
         setToastMessage(result.message || "Falha ao marcar hábito.", "error");
     }
-    // Data is refreshed within completeSharedHabit
   };
   
   const handleCancelRequest = async (requestId: string) => {
@@ -85,7 +91,25 @@ const SharedHabitsPage: React.FC = () => {
     } else {
         setToastMessage(result.message || "Falha ao cancelar convite.", "error");
     }
-    // Data is refreshed within cancelSentSharedHabitRequest
+  };
+
+  const openDeleteConfirmModal = (habitId: string, habitText: string) => {
+    setHabitToDeleteId(habitId);
+    setHabitToDeleteText(habitText);
+    setIsDeleteConfirmModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!habitToDeleteId) return;
+    const result = await deleteSharedHabit(habitToDeleteId);
+    if (result.success) {
+      setToastMessage(result.message || "Hábito compartilhado excluído.", "success");
+    } else {
+      setToastMessage(result.message || "Falha ao excluir hábito.", "error");
+    }
+    setIsDeleteConfirmModalOpen(false);
+    setHabitToDeleteId(null);
+    setHabitToDeleteText('');
   };
 
 
@@ -101,9 +125,9 @@ const SharedHabitsPage: React.FC = () => {
             alt="Slowpoke Confuso" 
             className="mx-auto mb-6 rounded-full w-40 h-40 object-cover border-4 border-slate-700 shadow-lg" 
         />
-        <h1 className="text-2xl font-bold text-yellow-400 mb-3">Hábitos Compartilhados Bloqueados</h1>
+        <h1 className="text-2xl font-bold text-yellow-400 mb-3">Encrenca em Dobro Bloqueada</h1>
         <p className="text-slate-300 text-lg">
-          Você precisa alcançar o <strong className="text-white">Nível {MIN_LEVEL_FOR_SHARED_HABITS}</strong> para desbloquear os hábitos compartilhados.
+          Você precisa alcançar o <strong className="text-white">Nível {MIN_LEVEL_FOR_SHARED_HABITS}</strong> para desbloquear a Encrenca em Dobro.
         </p>
         <p className="text-slate-400 mt-2">Seu nível atual é: <strong className="text-white">{playerLevel}</strong>.</p>
         <p className="text-slate-400 mt-4">Continue completando seus hábitos pessoais para ganhar XP e subir de nível!</p>
@@ -112,13 +136,13 @@ const SharedHabitsPage: React.FC = () => {
   }
   
   if (sharedHabitsData.isLoading) {
-    return <p className="text-center text-xl py-10 text-yellow-400 animate-pulse">Carregando seus hábitos compartilhados...</p>;
+    return <p className="text-center text-xl py-10 text-yellow-400 animate-pulse">Carregando sua Encrenca em Dobro...</p>;
   }
   
   if (sharedHabitsData.error) {
     return (
         <div className="text-center py-10 bg-red-800 bg-opacity-50 p-6 rounded-lg">
-            <p className="text-xl text-red-300">Erro ao carregar Hábitos Compartilhados</p>
+            <p className="text-xl text-red-300">Erro ao carregar Encrenca em Dobro</p>
             <p className="text-slate-400 mt-2">{sharedHabitsData.error}</p>
             <button 
                 onClick={() => fetchSharedHabitsData()}
@@ -135,20 +159,20 @@ const SharedHabitsPage: React.FC = () => {
     <div className="space-y-8">
       <header className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-yellow-400">Hábitos Compartilhados</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold text-yellow-400">Encrenca em Dobro</h1>
             <p className="text-slate-300 text-base sm:text-lg mt-1">Colabore com outros treinadores e ganhem recompensas juntos!</p>
         </div>
         <button
           onClick={handleOpenAddModal}
           className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors w-full sm:w-auto"
-          aria-label="Adicionar novo hábito compartilhado"
+          aria-label="Convidar treinador para novo hábito compartilhado"
         >
-          Adicionar Hábito Compartilhado
+          Convidar Treinador
         </button>
       </header>
       
       <section aria-labelledby="active-shared-habits-heading">
-        <h2 id="active-shared-habits-heading" className="text-2xl font-semibold text-yellow-300 mb-3">Minhas Colaborações Ativas</h2>
+        <h2 id="active-shared-habits-heading" className="text-2xl font-semibold text-yellow-300 mb-3">Hábitos Compartilhados</h2>
         {sharedHabitsData.active.length > 0 ? (
           <ul className="space-y-3">
             {sharedHabitsData.active.map(habit => {
@@ -165,14 +189,23 @@ const SharedHabitsPage: React.FC = () => {
                     <p className={myCompletionStatus ? "text-green-400" : "text-slate-400"}>Sua conclusão hoje: {myCompletionStatus ? "Sim" : "Não"}</p>
                     <p className={partnerCompletionStatus ? "text-green-400" : "text-slate-400"}>Conclusão de {partnerUsername} hoje: {partnerCompletionStatus ? "Sim" : "Não"}</p>
                 </div>
-                 <button 
-                    onClick={() => handleComplete(habit.id)}
-                    className="mt-2 text-xs bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded disabled:opacity-50"
-                    disabled={myCompletionStatus}
-                    aria-label={`Marcar hábito '${habit.habitText}' como feito`}
-                >
-                    {myCompletionStatus ? "Feito Hoje!" : "Marcar como Feito"}
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2 items-center">
+                    <button 
+                        onClick={() => handleComplete(habit.id)}
+                        className="text-xs bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded disabled:opacity-50"
+                        disabled={myCompletionStatus}
+                        aria-label={`Marcar hábito '${habit.habitText}' como feito`}
+                    >
+                        {myCompletionStatus ? "Feito Hoje!" : "Marcar como Feito"}
+                    </button>
+                    <button 
+                        onClick={() => openDeleteConfirmModal(habit.id, habit.habitText)}
+                        className="text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
+                        aria-label={`Excluir hábito compartilhado '${habit.habitText}'`}
+                    >
+                        Excluir
+                    </button>
+                </div>
                  <p className="text-xs text-slate-500 mt-1">Sequência com {partnerUsername}: {currentUser?.sharedHabitStreaks[partnerUsername] || 0} dias</p>
               </li>
             );
@@ -286,6 +319,35 @@ const SharedHabitsPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={isDeleteConfirmModalOpen} onClose={() => setIsDeleteConfirmModalOpen(false)} title="Confirmar Exclusão">
+        <div className="text-center">
+            <p className="text-lg text-slate-300 mb-2">
+                Tem certeza que deseja excluir o hábito compartilhado:
+            </p>
+            <p className="text-md font-semibold text-yellow-200 mb-4 break-words">"{habitToDeleteText}"?</p>
+            <p className="text-sm text-slate-400 mb-6">
+                Esta ação não pode ser desfeita e removerá o hábito para ambos os treinadores.
+            </p>
+            <div className="flex justify-center gap-4">
+                <button
+                    onClick={handleConfirmDelete}
+                    className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                    aria-label={`Confirmar exclusão do hábito ${habitToDeleteText}`}
+                >
+                    Sim, Excluir
+                </button>
+                <button
+                    onClick={() => setIsDeleteConfirmModalOpen(false)}
+                    className="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                    aria-label="Cancelar exclusão"
+                >
+                    Cancelar
+                </button>
+            </div>
+        </div>
       </Modal>
 
     </div>
