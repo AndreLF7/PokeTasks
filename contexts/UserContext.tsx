@@ -1042,14 +1042,25 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           habitText: habitText,
         }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonParseError: any) {
+        const responseText = await response.text();
+        console.error("sendSharedHabitInvitation: Failed to parse JSON response. Status:", response.status, "Raw Body:", responseText);
+        throw new Error(`O servidor respondeu de forma inesperada (status: ${response.status}). Detalhe: ${jsonParseError.message}. Resposta: ${responseText.substring(0,200)}...`);
       }
+
+      if (!response.ok) {
+        console.error("sendSharedHabitInvitation: Server responded with error. Status:", response.status, "Data:", data);
+        throw new Error(data.message || `Erro do servidor: ${response.status}`);
+      }
+      
       await fetchSharedHabitsData(); 
       return { success: true, message: data.message || "Convite enviado com sucesso!" };
     } catch (error: any) {
-      console.error("Error sending shared habit invitation:", error);
+      console.error("Error sending shared habit invitation (outer catch):", error);
       return { success: false, message: error.message || "Falha ao enviar convite." };
     }
   };
