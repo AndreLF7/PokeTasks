@@ -86,7 +86,7 @@ export default async function handler(req, res) {
   // Use URL searchParams for routing parameters
   const { searchParams } = new URL(url, `http://${req.headers.host}`);
   const action = searchParams.get('action');
-  const sharedHabitId = searchParams.get('id'); // Renamed from 'id' to 'sharedHabitId' for clarity
+  const sharedHabitIdQueryParam = searchParams.get('id'); 
   const usernameQuery = searchParams.get('username');
 
   let reqBody;
@@ -143,17 +143,18 @@ export default async function handler(req, res) {
           lastCompletionResetDate: today,
         });
         await newSharedHabit.save();
-        return res.status(201).json({ message: 'Convite para hábito compartilhado enviado!', sharedHabit: newSharedHabit });
+        const { _id, ...restOfNewHabit } = newSharedHabit.toObject(); // Use toObject() for saved doc
+        return res.status(201).json({ message: 'Convite para hábito compartilhado enviado!', sharedHabit: { id: _id.toString(), ...restOfNewHabit } });
       } catch (error) {
         console.error('Error creating shared habit invitation:', error);
         return res.status(500).json({ message: 'Falha ao criar convite: ' + error.message });
       }
-    } else if (action === 'complete' && sharedHabitId) {
+    } else if (action === 'complete' && sharedHabitIdQueryParam) {
       try {
         const { usernameCompleting } = reqBody;
         if (!usernameCompleting) return res.status(400).json({ message: 'Username completing is required.' });
 
-        const habit = await SharedHabitModel.findById(sharedHabitId);
+        const habit = await SharedHabitModel.findById(sharedHabitIdQueryParam);
         if (!habit) return res.status(404).json({ message: 'Shared habit not found.' });
         if (habit.status !== 'active') return res.status(400).json({ message: 'Habit is not active.' });
         
@@ -196,7 +197,8 @@ export default async function handler(req, res) {
           }
         }
         await habit.save();
-        return res.status(200).json({ message, sharedHabit: habit });
+        const { _id, ...restOfHabit } = habit.toObject();
+        return res.status(200).json({ message, sharedHabit: { id: _id.toString(), ...restOfHabit } });
       } catch (error) {
         console.error('Error completing shared habit:', error);
         return res.status(500).json({ message: 'Falha ao completar o hábito: ' + error.message });
@@ -207,13 +209,13 @@ export default async function handler(req, res) {
   } else if (method === 'GET') {
     if (usernameQuery) {
       try {
-        const sharedHabits = await SharedHabitModel.find({
+        const sharedHabitsFromDB = await SharedHabitModel.find({
             $or: [{ creatorUsername: usernameQuery }, { inviteeUsername: usernameQuery }],
             status: { $nin: ['archived', 'declined_invitee', 'cancelled_creator'] }
         }).sort({ createdAt: -1 }).lean();
         
         const activeDBUpdates = [];
-        for (const habit of sharedHabits) {
+        for (const habit of sharedHabitsFromDB) {
             if (habit.lastCompletionResetDate !== today) {
                 activeDBUpdates.push(
                     SharedHabitModel.updateOne({ _id: habit._id }, {
@@ -223,15 +225,22 @@ export default async function handler(req, res) {
                         }
                     })
                 );
+                // Update the local copy for immediate reflection in the response
                 habit.creatorCompletedToday = false; habit.inviteeCompletedToday = false;
                 habit.lastRewardGrantedDate = ''; habit.lastCompletionResetDate = today;
             }
         }
         if (activeDBUpdates.length > 0) await Promise.all(activeDBUpdates);
 
-        const active = sharedHabits.filter(h => h.status === 'active');
-        const pendingInvitationsReceived = sharedHabits.filter(h => h.inviteeUsername === usernameQuery && h.status === 'pending_invitee_approval');
-        const pendingInvitationsSent = sharedHabits.filter(h => h.creatorUsername === usernameQuery && h.status === 'pending_invitee_approval');
+        // Transform for client: map _id to id
+        const clientReadySharedHabits = sharedHabitsFromDB.map(habit => {
+            const { _id, __v, ...rest } = habit; // __v is mongoose version key, good to exclude
+            return { id: _id.toString(), ...rest };
+        });
+
+        const active = clientReadySharedHabits.filter(h => h.status === 'active');
+        const pendingInvitationsReceived = clientReadySharedHabits.filter(h => h.inviteeUsername === usernameQuery && h.status === 'pending_invitee_approval');
+        const pendingInvitationsSent = clientReadySharedHabits.filter(h => h.creatorUsername === usernameQuery && h.status === 'pending_invitee_approval');
         
         return res.status(200).json({ active, pendingInvitationsReceived, pendingInvitationsSent });
       } catch (error) {
@@ -242,39 +251,41 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Username query parameter is required for GET.' });
     }
   } else if (method === 'PUT') {
-    if (action === 'respond' && sharedHabitId) {
+    if (action === 'respond' && sharedHabitIdQueryParam) {
       try {
         const { response: userResponse, responderUsername } = reqBody;
         if (!responderUsername || !['accept', 'decline'].includes(userResponse)) {
           return res.status(400).json({ message: 'Responder username and valid response (accept/decline) are required.' });
         }
-        const habit = await SharedHabitModel.findById(sharedHabitId);
+        const habit = await SharedHabitModel.findById(sharedHabitIdQueryParam);
         if (!habit) return res.status(404).json({ message: 'Shared habit not found.' });
         if (habit.inviteeUsername !== responderUsername) return res.status(403).json({ message: 'Only the invitee can respond.' });
         if (habit.status !== 'pending_invitee_approval') return res.status(400).json({ message: 'Habit is not pending approval.' });
 
         habit.status = userResponse === 'accept' ? 'active' : 'declined_invitee';
         if (userResponse === 'accept') habit.acceptedAt = new Date();
-        habit.lastCompletionResetDate = today;
+        habit.lastCompletionResetDate = today; // Initialize reset date on activation
         await habit.save();
-        return res.status(200).json({ message: `Convite ${userResponse === 'accept' ? 'aceito' : 'recusado'}!`, sharedHabit: habit });
+        const { _id, ...restOfHabit } = habit.toObject();
+        return res.status(200).json({ message: `Convite ${userResponse === 'accept' ? 'aceito' : 'recusado'}!`, sharedHabit: { id: _id.toString(), ...restOfHabit } });
       } catch (error) {
         console.error('Error responding to shared habit:', error);
         return res.status(500).json({ message: 'Falha ao responder ao convite: ' + error.message });
       }
-    } else if (action === 'cancel' && sharedHabitId) { // Changed from DELETE to PUT for cancel
+    } else if (action === 'cancel' && sharedHabitIdQueryParam) { 
        try {
           const { cancellerUsername } = reqBody;
           if (!cancellerUsername) return res.status(400).json({ message: 'Canceller username is required.' });
 
-          const habit = await SharedHabitModel.findById(sharedHabitId);
+          const habit = await SharedHabitModel.findById(sharedHabitIdQueryParam);
           if (!habit) return res.status(404).json({ message: 'Shared habit not found.' });
           if (habit.creatorUsername !== cancellerUsername) return res.status(403).json({ message: 'Only the creator can cancel a pending invitation.' });
           if (habit.status !== 'pending_invitee_approval') return res.status(400).json({ message: 'Invitation is not pending.' });
 
           habit.status = 'cancelled_creator';
           await habit.save();
-          return res.status(200).json({ message: 'Convite cancelado.', sharedHabit: habit });
+          const { _id, ...restOfHabit } = habit.toObject();
+          return res.status(200).json({ message: 'Convite cancelado.', sharedHabit: { id: _id.toString(), ...restOfHabit } });
         } catch (error) {
           console.error('Error canceling shared habit invitation:', error);
           return res.status(500).json({ message: 'Falha ao cancelar o convite: ' + error.message });
@@ -283,10 +294,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Invalid PUT action or missing ID.' });
     }
   } 
-  // Note: DELETE method was removed for 'cancel' action, consolidated into PUT.
-  // If you need other DELETE actions, they can be added here.
   else {
-    res.setHeader('Allow', ['GET', 'POST', 'PUT']); // Removed DELETE from Allow if not used
+    res.setHeader('Allow', ['GET', 'POST', 'PUT']); 
     res.status(405).end(`Method ${method} Not Allowed on /api/sharedHabits`);
   }
 }
