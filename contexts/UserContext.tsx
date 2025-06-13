@@ -1033,7 +1033,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
 
     try {
-      const response = await fetch('/api/sharedHabits/invite', {
+      const response = await fetch(`/api/sharedHabits?action=invite`, { // MODIFIED URL
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1043,7 +1043,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         }),
       });
       
-      // Clone the response to allow reading body multiple times if needed
       const responseCloneForJson = response.clone();
       const responseCloneForText = response.clone();
 
@@ -1051,15 +1050,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       try {
         data = await responseCloneForJson.json();
       } catch (jsonParseError: any) {
-        // If JSON parsing fails, try to get the text response for more context
         const responseText = await responseCloneForText.text();
         console.error("sendSharedHabitInvitation: Failed to parse JSON response. Status:", response.status, "Raw Body:", responseText);
-        // Provide a more informative error message to the user
         throw new Error(`O servidor respondeu de forma inesperada (status: ${response.status}). Detalhe: ${jsonParseError.message}. Resposta: ${responseText.substring(0,200)}...`);
       }
 
       if (!response.ok) {
-        // If response was not OK, but we successfully parsed JSON (error object from server)
         console.error("sendSharedHabitInvitation: Server responded with error. Status:", response.status, "Data:", data);
         throw new Error(data.message || `Erro do servidor: ${response.status}`);
       }
@@ -1067,7 +1063,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       await fetchSharedHabitsData(); 
       return { success: true, message: data.message || "Convite enviado com sucesso!" };
     } catch (error: any) {
-      // This catch will handle errors from fetch itself, or errors thrown from the try block above
       console.error("Error sending shared habit invitation (outer catch):", error);
       return { success: false, message: error.message || "Falha ao enviar convite." };
     }
@@ -1076,7 +1071,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const respondToSharedHabitInvitation = async (sharedHabitId: string, responseStatus: 'accept' | 'decline'): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
     try {
-      const apiResponse = await fetch(`/api/sharedHabits/${sharedHabitId}/respond`, {
+      const apiResponse = await fetch(`/api/sharedHabits?action=respond&id=${sharedHabitId}`, { // MODIFIED URL
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response: responseStatus, responderUsername: currentUser.username })
@@ -1084,14 +1079,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const data = await apiResponse.json();
       if (!apiResponse.ok) throw new Error(data.message || 'Falha ao responder ao convite');
       await fetchSharedHabitsData();
-      // If accepted, also save current user profile locally as sharedHabitStreaks might be initialized by server if it's new.
       if (responseStatus === 'accept' && data.sharedHabit) {
-           const updatedProfile = {
-            ...currentUser,
-            // Server might initialize streak. Client doesn't need to manually update it here.
-            // Just ensure profile is "dirty" for potential save.
-           };
-           updateUserProfile(updatedProfile); // This saves to localStorage.
+           const updatedProfile = { ...currentUser };
+           updateUserProfile(updatedProfile);
       }
       return { success: true, message: data.message };
     } catch (error: any) {
@@ -1103,7 +1093,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const completeSharedHabit = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
     try {
-      const apiResponse = await fetch(`/api/sharedHabits/${sharedHabitId}/complete`, {
+      const apiResponse = await fetch(`/api/sharedHabits?action=complete&id=${sharedHabitId}`, { // MODIFIED URL
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usernameCompleting: currentUser.username })
@@ -1134,8 +1124,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const cancelSentSharedHabitRequest = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
     try {
-      const apiResponse = await fetch(`/api/sharedHabits/${sharedHabitId}/cancel`, {
-        method: 'DELETE', 
+      // Using PUT for cancel for broader compatibility, though DELETE might be more semantically correct
+      const apiResponse = await fetch(`/api/sharedHabits?action=cancel&id=${sharedHabitId}`, { // MODIFIED URL
+        method: 'PUT', // Changed from DELETE to PUT to ensure body is processed reliably by all platforms
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cancellerUsername: currentUser.username }) 
       });
