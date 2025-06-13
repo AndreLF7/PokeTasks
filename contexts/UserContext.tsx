@@ -1042,17 +1042,24 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           habitText: habitText,
         }),
       });
+      
+      // Clone the response to allow reading body multiple times if needed
+      const responseCloneForJson = response.clone();
+      const responseCloneForText = response.clone();
 
       let data;
       try {
-        data = await response.json();
+        data = await responseCloneForJson.json();
       } catch (jsonParseError: any) {
-        const responseText = await response.text();
+        // If JSON parsing fails, try to get the text response for more context
+        const responseText = await responseCloneForText.text();
         console.error("sendSharedHabitInvitation: Failed to parse JSON response. Status:", response.status, "Raw Body:", responseText);
+        // Provide a more informative error message to the user
         throw new Error(`O servidor respondeu de forma inesperada (status: ${response.status}). Detalhe: ${jsonParseError.message}. Resposta: ${responseText.substring(0,200)}...`);
       }
 
       if (!response.ok) {
+        // If response was not OK, but we successfully parsed JSON (error object from server)
         console.error("sendSharedHabitInvitation: Server responded with error. Status:", response.status, "Data:", data);
         throw new Error(data.message || `Erro do servidor: ${response.status}`);
       }
@@ -1060,6 +1067,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       await fetchSharedHabitsData(); 
       return { success: true, message: data.message || "Convite enviado com sucesso!" };
     } catch (error: any) {
+      // This catch will handle errors from fetch itself, or errors thrown from the try block above
       console.error("Error sending shared habit invitation (outer catch):", error);
       return { success: false, message: error.message || "Falha ao enviar convite." };
     }
