@@ -51,6 +51,7 @@ export interface SharedHabitDisplayInfo {
 
 export interface UserProfile {
   username: string;
+  password?: string; // Added for password protection
   habits: Habit[];
   caughtPokemon: CaughtPokemon[];
   pokeBalls: number;
@@ -69,6 +70,7 @@ export interface UserProfile {
   lastLevelRewardClaimed: number; // Tracks the last level for which rewards were claimed
   maxHabitSlots: number; // Tracks the maximum number of habits the user can have
   avatarId?: string; // Added to store the selected avatar ID
+  boostedHabitId?: string | null; // Added for habit boost feature
 
   // Fields for Shared Habits
   sharedHabitStreaks: Record<string, number>; // e.g., { "partnerUsername": 5 }

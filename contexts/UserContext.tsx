@@ -24,14 +24,15 @@ import {
   LEVEL_THRESHOLDS,
   MAX_PLAYER_LEVEL,
   MIN_LEVEL_FOR_SHARED_HABITS,
-  DEFAULT_AVATAR_ID, 
-  // Constants for shared habit rewards (can be moved to a shared constants file if needed)
-  // XP_PER_SHARED_HABIT_JOINT_COMPLETION, // Defined in api/sharedHabits.js
-  // POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION, // Defined in api/sharedHabits.js
+  DEFAULT_AVATAR_ID,
+  MIN_LEVEL_FOR_BOOSTED_HABIT, // Added
+  BOOSTED_HABIT_XP_MULTIPLIER, // Added
+  BOOSTED_HABIT_POKEBALL_REWARD, // Added
+  NORMAL_HABIT_POKEBALL_REWARD, // Added
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants';
 
-const XP_PER_SHARED_HABIT_JOINT_COMPLETION = 5; 
+const XP_PER_SHARED_HABIT_JOINT_COMPLETION = 20; 
 const POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION = 1;
 
 interface LevelInfo {
@@ -54,7 +55,7 @@ interface SharedHabitsState {
 interface UserContextType {
   currentUser: UserProfile | null;
   loading: boolean;
-  login: (username: string) => Promise<{ success: boolean; message?: string }>;
+  login: (username: string, password?: string) => Promise<{ success: boolean; message?: string }>; // Added password
   logout: () => void;
   addHabit: (text: string) => void;
   confirmHabitCompletion: (habitId: string) => void;
@@ -69,13 +70,14 @@ interface UserContextType {
   saveProfileToCloud: () => Promise<{ success: boolean; message: string }>;
   loadProfileFromCloud: (usernameToLoad?: string) => Promise<{ success: boolean; message: string }>;
   toggleShareHabitsPublicly: () => void;
-  selectAvatar: (avatarId: string) => void; // Added for avatar selection
+  selectAvatar: (avatarId: string) => void;
   claimStreakRewards: () => void;
   claimLevelRewards: () => void;
   toastMessage: { id: string, text: string, type: 'info' | 'success' | 'error', leaderImageUrl?: string } | null;
   clearToastMessage: () => void;
   setToastMessage: (text: string, type?: 'info' | 'success' | 'error', leaderImageUrl?: string) => void; 
   calculatePlayerLevelInfo: (totalXP: number) => LevelInfo;
+  toggleHabitBoost: (habitId: string) => void; // Added for habit boost
 
   sharedHabitsData: SharedHabitsState;
   fetchSharedHabitsData: () => Promise<void>;
@@ -83,7 +85,7 @@ interface UserContextType {
   respondToSharedHabitInvitation: (sharedHabitId: string, response: 'accept' | 'decline') => Promise<{ success: boolean; message?: string }>;
   completeSharedHabit: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>;
   cancelSentSharedHabitRequest: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>;
-  deleteSharedHabit: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>; // New function
+  deleteSharedHabit: (sharedHabitId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -135,7 +137,7 @@ const calculatePlayerLevelInfoInternal = (totalXP: number): LevelInfo => {
     currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
     const xpRemainingForNextLevel = totalXPForThisLevelSpanDisplay - currentXPInLevelDisplay;
     xpToNextLevelDisplay = xpRemainingForNextLevel.toLocaleString('pt-BR');
-    xpProgressPercent = totalXPForThisLevelSpanDisplay > 0 ? (currentXPInLevelDisplay / totalXPForThisLevelSpanDisplay) * 100 : 100;
+    xpProgressPercent = totalXPForThisLevelSpanDisplay > 0 ? (currentXPInLevelDisplay / totalXPForThisLevelSpanDisplay) * 100 : 0;
     xpProgressPercent = Math.max(0, Math.min(xpProgressPercent, 100));
   } else {
     currentXPInLevelDisplay = totalXP - xpForCurrentLevelStart;
@@ -193,6 +195,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       };
 
       profile.username = String(profile.username || 'Treinador');
+      profile.password = typeof profile.password === 'string' ? profile.password : undefined; // Initialize password
       profile.pokeBalls = parseNumericField(profile.pokeBalls, 0);
       profile.greatBalls = parseNumericField(profile.greatBalls, 0);
       profile.ultraBalls = parseNumericField(profile.ultraBalls, 0);
@@ -309,14 +312,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         ? profile.lastResetDate
         : getTodayDateString();
 
-      profile.avatarId = typeof profile.avatarId === 'string' ? profile.avatarId : DEFAULT_AVATAR_ID; // Initialize avatarId
+      profile.avatarId = typeof profile.avatarId === 'string' ? profile.avatarId : DEFAULT_AVATAR_ID;
 
       profile.experiencePoints = parseNumericField(profile.experiencePoints, 0);
       profile.shareHabitsPublicly = typeof profile.shareHabitsPublicly === 'boolean' ? profile.shareHabitsPublicly : false;
       profile.lastLevelRewardClaimed = parseNumericField(profile.lastLevelRewardClaimed, 1);
       
-      // Max habit slots are now fixed
       profile.maxHabitSlots = INITIAL_MAX_HABIT_SLOTS;
+      profile.boostedHabitId = (typeof profile.boostedHabitId === 'string' && profile.boostedHabitId) ? profile.boostedHabitId : null; // Initialize boostedHabitId
 
       profile.sharedHabitStreaks = (typeof profile.sharedHabitStreaks === 'object' && profile.sharedHabitStreaks !== null && !Array.isArray(profile.sharedHabitStreaks))
         ? profile.sharedHabitStreaks
@@ -329,11 +332,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("UserContext: CRITICAL - Unhandled error in initializeProfileFields. Returning default profile.", error, "Input data:", profileInput);
       return {
-        username: 'Treinador', habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
+        username: 'Treinador', password: undefined, habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
         dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
         dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
         experiencePoints: 0, shareHabitsPublicly: false,
         lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
+        boostedHabitId: null,
         sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
       };
     }
@@ -360,8 +364,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         updatedProfile.lastResetDate = todayLocalStr;
     }
 
-    // This field is mainly managed by server on GET /api/sharedHabits.
-    // Client-side update is less critical here but kept for consistency if profile is saved before next fetch.
     if (updatedProfile.lastSharedHabitCompletionResetDate !== todayLocalStr) {
         updatedProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
     }
@@ -439,14 +441,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setCurrentUser(userProfile);
       setLoading(false);
-      if (userProfile) {
-        // fetchSharedHabitsData will be called by useEffects below based on currentUser update
-      }
     }
   }, [initializeProfileFields, handleDayRollover]);
 
   useEffect(() => {
-    loadUser(); // Initial load
+    loadUser(); 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'pokemonHabitUser') {
         loadUser(); 
@@ -456,8 +455,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, [loadUser]); 
 
   useEffect(() => {
     if (currentUser && currentUser.username) {
@@ -482,15 +480,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           profileChangedByDayRollover = true;
         }
         
-        // Check if shared habits data needs refresh due to day change
-        // The individual habit reset is handled by the GET /api/sharedHabits call
-        // This primarily ensures fetchSharedHabitsData is called if the day rolls over client-side
-        // and the profile's lastSharedHabitCompletionResetDate is updated.
         if (currentUser.lastSharedHabitCompletionResetDate !== todayLocalStr) {
             if (calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level >= MIN_LEVEL_FOR_SHARED_HABITS) {
                  fetchSharedHabitsData(); 
             }
-            tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr; // Update client-side tracking
+            tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
             if (!profileChangedByDayRollover) profileChangedByDayRollover = true;
         }
 
@@ -502,59 +496,79 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return () => clearInterval(intervalId);
   }, [currentUser, handleDayRollover, updateUserProfile, fetchSharedHabitsData]);
 
-  const login = async (username: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (username: string, password?: string): Promise<{ success: boolean; message?: string }> => {
     setLoading(true);
     const trimmedUsername = username.trim();
+
+    if (!password) {
+      setLoading(false);
+      return { success: false, message: "Por favor, insira sua senha." };
+    }
+
     try {
       const response = await fetch(`/api/habits?username=${encodeURIComponent(trimmedUsername)}`);
-      
-      if (response.ok) {
-        const cloudData = await response.json();
-        let userProfile = initializeProfileFields(cloudData);
-        userProfile = handleDayRollover(userProfile);
+      let userProfileData;
+      let isNewUserScenario = false; // For setting password for the first time
 
-        localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
-        const storedUsersData = localStorage.getItem('allPokemonHabitUsers');
-        const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : {};
-        storedUsers[userProfile.username] = userProfile;
-        localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
-        
-        setCurrentUser(userProfile);
-        // fetchSharedHabitsData will be triggered by useEffect watching currentUser
-        setLoading(false); 
-        return { success: true, message: "Perfil carregado da nuvem." };
-      } else if (response.status === 404) {
+      if (response.ok) { // User exists in cloud
+        userProfileData = await response.json();
+        if (userProfileData.password && userProfileData.password !== password) {
+          setLoading(false);
+          return { success: false, message: "Senha incorreta." };
+        }
+        if (!userProfileData.password) { // Existing user, first time setting password
+          userProfileData.password = password;
+          isNewUserScenario = true; // Will trigger save later
+        }
+      } else if (response.status === 404) { // User not in cloud
         const storedUsersString = localStorage.getItem('allPokemonHabitUsers');
         const storedUsers = storedUsersString ? JSON.parse(storedUsersString) : {};
-        let userProfileData = storedUsers[trimmedUsername];
+        userProfileData = storedUsers[trimmedUsername];
 
-        if (!userProfileData) {
+        if (userProfileData) { // User exists locally
+          if (userProfileData.password && userProfileData.password !== password) {
+            setLoading(false);
+            return { success: false, message: "Senha incorreta." };
+          }
+           if (!userProfileData.password) { // Existing local user, first time setting password
+            userProfileData.password = password;
+            isNewUserScenario = true;
+          }
+        } else { // Completely new user
           userProfileData = {
-            username: trimmedUsername, habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
+            username: trimmedUsername, password: password, habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
             dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
             dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
             experiencePoints: 0, shareHabitsPublicly: false,
             lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
+            boostedHabitId: null,
             sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
           };
-        } else {
-          userProfileData = initializeProfileFields(userProfileData); 
+          isNewUserScenario = true;
         }
-        
-        let userProfile = initializeProfileFields(userProfileData); 
-        userProfile = handleDayRollover(userProfile);
-
-        storedUsers[userProfile.username] = userProfile;
-        localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
-        localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
-        setCurrentUser(userProfile);
-        // fetchSharedHabitsData will be triggered by useEffect watching currentUser
-        setLoading(false);
-        return { success: true, message: "Novo perfil local criado." };
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Falha ao verificar perfil na nuvem: ${response.status}`);
+        throw new Error(errorData.error || `Falha ao verificar perfil: ${response.status}`);
       }
+      
+      let userProfile = initializeProfileFields(userProfileData);
+      userProfile = handleDayRollover(userProfile);
+
+      localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
+      const allUsersData = localStorage.getItem('allPokemonHabitUsers');
+      const allUsers = allUsersData ? JSON.parse(allUsersData) : {};
+      allUsers[userProfile.username] = userProfile;
+      localStorage.setItem('allPokemonHabitUsers', JSON.stringify(allUsers));
+      
+      setCurrentUser(userProfile);
+      setLoading(false);
+
+      if (isNewUserScenario) { // Save new user or user with new password to cloud
+        await saveProfileToCloud(); // Fire and forget for login flow, or handle result
+        return { success: true, message: userProfileData.password ? "Login bem-sucedido!" : "Senha definida e login bem-sucedido!" };
+      }
+      return { success: true, message: "Login bem-sucedido!" };
+
     } catch (error: any) {
       console.error("UserContext: Error during login:", error);
       setCurrentUser(null);
@@ -563,6 +577,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       return { success: false, message: error.message || "Ocorreu um erro durante o login." };
     }
   };
+
 
   const logout = () => {
     if (currentUser) {
@@ -608,10 +623,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
 
     let newDailyCompletions = currentUser.dailyCompletions + 1;
-    let newPokeBalls = currentUser.pokeBalls + 1;
+    let newPokeBalls = currentUser.pokeBalls;
     let newGreatBalls = currentUser.greatBalls;
     let newUltraBalls = currentUser.ultraBalls;
-    let newExperiencePoints = currentUser.experiencePoints + XP_PER_HABIT_COMPLETION;
+    let newExperiencePoints = currentUser.experiencePoints;
+
+    const isBoosted = currentUser.boostedHabitId === habitId && calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level >= MIN_LEVEL_FOR_BOOSTED_HABIT;
+
+    if (isBoosted) {
+      newPokeBalls += BOOSTED_HABIT_POKEBALL_REWARD;
+      newExperiencePoints += XP_PER_HABIT_COMPLETION * BOOSTED_HABIT_XP_MULTIPLIER;
+    } else {
+      newPokeBalls += NORMAL_HABIT_POKEBALL_REWARD;
+      newExperiencePoints += XP_PER_HABIT_COMPLETION;
+    }
 
     if (newDailyCompletions % 5 === 0) newGreatBalls++;
     if (newDailyCompletions % 10 === 0) newUltraBalls++;
@@ -664,7 +689,25 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   const deleteHabit = (habitId: string) => {
     if (!currentUser) return;
-    updateUserProfile({ ...currentUser, habits: currentUser.habits.filter(h => h.id !== habitId) });
+    let updatedProfile = { ...currentUser, habits: currentUser.habits.filter(h => h.id !== habitId) };
+    if (currentUser.boostedHabitId === habitId) {
+      updatedProfile.boostedHabitId = null;
+    }
+    updateUserProfile(updatedProfile);
+  };
+  
+  const toggleHabitBoost = (habitId: string) => {
+    if (!currentUser) return;
+    const playerLevel = calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level;
+    if (playerLevel < MIN_LEVEL_FOR_BOOSTED_HABIT) {
+        setToastMessage(`Você precisa ser Nível ${MIN_LEVEL_FOR_BOOSTED_HABIT} para focar em um hábito.`, "error");
+        return;
+    }
+
+    updateUserProfile({
+        ...currentUser,
+        boostedHabitId: currentUser.boostedHabitId === habitId ? null : habitId,
+    });
   };
 
   const _isLeaderUnlocked = (leader: GymLeader, caughtPokemonIds: Set<number>): boolean => {
@@ -897,17 +940,24 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         }
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
+      
+      // Password from cloud should not overwrite local one unless explicitly changing password
+      // For this load, we assume the user is already logged in or this is a fresh load where password will be handled by login.
+      // So, we keep the existing currentUser.password if currentUser exists.
+      const cloudProfile = initializeProfileFields(data);
+      if (currentUser && currentUser.password && !cloudProfile.password) {
+        cloudProfile.password = currentUser.password;
+      }
 
-      localStorage.setItem('pokemonHabitUser', JSON.stringify(data));
+
+      localStorage.setItem('pokemonHabitUser', JSON.stringify(cloudProfile));
       const storedUsersData = localStorage.getItem('allPokemonHabitUsers');
       const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : {};
-      storedUsers[data.username] = data;
+      storedUsers[cloudProfile.username] = cloudProfile; // Save the potentially password-updated profile
       localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
 
-      let userProfile = initializeProfileFields(data);
-      userProfile = handleDayRollover(userProfile);
+      let userProfile = handleDayRollover(cloudProfile);
       setCurrentUser(userProfile);
-      // fetchSharedHabitsData will be triggered by useEffect watching currentUser
       setLoading(false); 
       return { success: true, message: "Perfil carregado da nuvem!" };
     } catch (error: any) {
@@ -984,16 +1034,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     let updatedProfile = { ...currentUser };
     let awardedUltraBalls = 0;
     let awardedGreatBalls = 0;
-    // Removed awardedHabitSlots and currentMaxHabits logic
 
     for (let levelToClaim = lastClaimed + 1; levelToClaim <= currentLevel; levelToClaim++) {
-      // Rewards for habit slots are removed
       switch (levelToClaim) {
         case 2:
           updatedProfile.ultraBalls += 1;
           awardedUltraBalls += 1;
           break;
-        case 3: // No habit slot increase
+        case 3:
           updatedProfile.ultraBalls += 1;
           awardedUltraBalls += 1;
           break;
@@ -1003,14 +1051,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           updatedProfile.greatBalls += 3;
           awardedGreatBalls += 3;
           break;
-        case 5: // No habit slot increase
+        case 5:
           updatedProfile.ultraBalls += 3;
           awardedUltraBalls += 3;
           updatedProfile.greatBalls += 5;
           awardedGreatBalls += 5;
           break;
         default: 
-          if (levelToClaim > 5) { // No habit slot increase
+          if (levelToClaim > 5) {
             updatedProfile.ultraBalls += 1;
             awardedUltraBalls += 1;
             updatedProfile.greatBalls += 1;
@@ -1019,14 +1067,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           break;
       }
     }
-    // updatedProfile.maxHabitSlots is no longer changed here
     updatedProfile.lastLevelRewardClaimed = currentLevel;
     updateUserProfile(updatedProfile);
 
     let rewardMessageParts: string[] = [];
     if (awardedUltraBalls > 0) rewardMessageParts.push(`${awardedUltraBalls} ${getTranslatedBallName('ultra', awardedUltraBalls > 1)}`);
     if (awardedGreatBalls > 0) rewardMessageParts.push(`${awardedGreatBalls} ${getTranslatedBallName('great', awardedGreatBalls > 1)}`);
-    // Removed habit slot message part
     
     if (rewardMessageParts.length > 0) {
       setToastMessage(`Recompensas de Nível Resgatadas! Você ganhou: ${rewardMessageParts.join(', ')}.`, "success");
@@ -1040,7 +1086,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
 
     try {
-      const response = await fetch(`/api/sharedHabits?action=invite`, { // MODIFIED URL
+      const response = await fetch(`/api/sharedHabits?action=invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1078,7 +1124,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const respondToSharedHabitInvitation = async (sharedHabitId: string, responseStatus: 'accept' | 'decline'): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
     try {
-      const apiResponse = await fetch(`/api/sharedHabits?action=respond&id=${sharedHabitId}`, { // MODIFIED URL
+      const apiResponse = await fetch(`/api/sharedHabits?action=respond&id=${sharedHabitId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response: responseStatus, responderUsername: currentUser.username })
@@ -1100,7 +1146,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const completeSharedHabit = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
     try {
-      const apiResponse = await fetch(`/api/sharedHabits?action=complete&id=${sharedHabitId}`, { // MODIFIED URL
+      const apiResponse = await fetch(`/api/sharedHabits?action=complete&id=${sharedHabitId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usernameCompleting: currentUser.username })
@@ -1131,9 +1177,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const cancelSentSharedHabitRequest = async (sharedHabitId: string): Promise<{ success: boolean; message?: string }> => {
     if (!currentUser) return { success: false, message: "Usuário não logado." };
     try {
-      // Using PUT for cancel for broader compatibility, though DELETE might be more semantically correct
-      const apiResponse = await fetch(`/api/sharedHabits?action=cancel&id=${sharedHabitId}`, { // MODIFIED URL
-        method: 'PUT', // Changed from DELETE to PUT to ensure body is processed reliably by all platforms
+      const apiResponse = await fetch(`/api/sharedHabits?action=cancel&id=${sharedHabitId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cancellerUsername: currentUser.username }) 
       });
@@ -1174,10 +1219,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       toggleShareHabitsPublicly, selectAvatar, claimStreakRewards, claimLevelRewards, 
       toastMessage: toastMessageState, clearToastMessage, setToastMessage,
       calculatePlayerLevelInfo: calculatePlayerLevelInfoInternal,
-      // Shared Habits
+      toggleHabitBoost, // Added
       sharedHabitsData, fetchSharedHabitsData, sendSharedHabitInvitation,
       respondToSharedHabitInvitation, completeSharedHabit, cancelSentSharedHabitRequest,
-      deleteSharedHabit, // Added deleteSharedHabit
+      deleteSharedHabit,
     }}>
       {children}
     </UserContext.Provider>

@@ -29,6 +29,7 @@ const CompletionHistorySchema = new mongoose.Schema({
 
 const UserProfileSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, index: true },
+  password: { type: String }, // Added password field
   habits: [HabitSchema],
   caughtPokemon: [CaughtPokemonSchema],
   pokeBalls: Number,
@@ -45,8 +46,9 @@ const UserProfileSchema = new mongoose.Schema({
   experiencePoints: Number,
   shareHabitsPublicly: { type: Boolean, default: false },
   lastLevelRewardClaimed: { type: Number, default: 1 },
-  maxHabitSlots: { type: Number, default: 10 }, // Default changed to 10
+  maxHabitSlots: { type: Number, default: 10 },
   avatarId: { type: String, default: 'red' }, 
+  boostedHabitId: { type: String, default: null }, // Added boostedHabitId field
   sharedHabitStreaks: { type: Map, of: Number, default: {} }, 
   lastSharedHabitCompletionResetDate: { type: String, default: '' }, 
 });
@@ -92,36 +94,25 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Username is required in profile data.' });
       }
 
-      // Ensure defaults for new fields if not present in older data being saved
-      if (typeof profileData.lastStreakDayClaimedForReward === 'undefined') {
-        profileData.lastStreakDayClaimedForReward = 0;
-      }
-      if (typeof profileData.shareHabitsPublicly === 'undefined') {
-        profileData.shareHabitsPublicly = false;
-      }
-      if (typeof profileData.lastLevelRewardClaimed === 'undefined') {
-        profileData.lastLevelRewardClaimed = 1;
-      }
-      
-      profileData.maxHabitSlots = 10; // Explicitly set to 10 before saving
-
-      if (typeof profileData.avatarId === 'undefined') { 
-        profileData.avatarId = 'red';
-      }
-      if (typeof profileData.sharedHabitStreaks === 'undefined') {
-        profileData.sharedHabitStreaks = {};
-      }
-      if (typeof profileData.lastSharedHabitCompletionResetDate === 'undefined') {
-        profileData.lastSharedHabitCompletionResetDate = ''; 
-      }
-
+      // Ensure defaults for new fields if not present
+      profileData.lastStreakDayClaimedForReward = profileData.lastStreakDayClaimedForReward ?? 0;
+      profileData.shareHabitsPublicly = profileData.shareHabitsPublicly ?? false;
+      profileData.lastLevelRewardClaimed = profileData.lastLevelRewardClaimed ?? 1;
+      profileData.maxHabitSlots = 10; 
+      profileData.avatarId = profileData.avatarId ?? 'red';
+      profileData.boostedHabitId = profileData.boostedHabitId === undefined ? null : profileData.boostedHabitId; // Allow null
+      profileData.sharedHabitStreaks = profileData.sharedHabitStreaks ?? {};
+      profileData.lastSharedHabitCompletionResetDate = profileData.lastSharedHabitCompletionResetDate ?? '';
+      // Password is intentionally not defaulted here, it's set on creation/first update if missing.
 
       const updatedProfile = await UserProfileModel.findOneAndUpdate(
         { username: profileData.username },
         profileData,
         { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
       );
-      return res.status(200).json({ message: 'Profile saved successfully.', profile: updatedProfile });
+      // Do not return password in response
+      const { password, ...profileToReturn } = updatedProfile.toObject();
+      return res.status(200).json({ message: 'Profile saved successfully.', profile: profileToReturn });
     } catch (error) {
       console.error('Error saving profile:', error);
       return res.status(500).json({ error: 'Failed to save profile. An internal error occurred.' });
@@ -137,27 +128,20 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Profile not found.' });
       }
       
-      // Ensure new fields have defaults if loading an older document from DB that doesn't have them
-      if (typeof profile.lastLevelRewardClaimed === 'undefined') {
-        profile.lastLevelRewardClaimed = 1;
-      }
+      // Ensure new fields have defaults if loading an older document
+      profile.lastLevelRewardClaimed = profile.lastLevelRewardClaimed ?? 1;
+      profile.maxHabitSlots = 10; 
+      profile.avatarId = profile.avatarId ?? 'red';
+      profile.boostedHabitId = profile.boostedHabitId === undefined ? null : profile.boostedHabitId; // Allow null
+      profile.sharedHabitStreaks = profile.sharedHabitStreaks ?? {};
+      profile.lastSharedHabitCompletionResetDate = profile.lastSharedHabitCompletionResetDate ?? '';
       
-      profile.maxHabitSlots = 10; // Explicitly set to 10 before sending to client
+      // Password exists in 'profile' here from DB
+      // We'll let the UserContext decide if it needs to be set/used
 
-      if (typeof profile.avatarId === 'undefined') { 
-        profile.avatarId = 'red';
-      }
-      if (typeof profile.sharedHabitStreaks === 'undefined') {
-        profile.sharedHabitStreaks = {};
-      }
-       if (typeof profile.lastSharedHabitCompletionResetDate === 'undefined') {
-        profile.lastSharedHabitCompletionResetDate = ''; 
-      }
-
-
-      delete profile._id;
-      delete profile.__v;
-      return res.status(200).json(profile);
+      delete profile._id; // _id is mongoose specific
+      delete profile.__v; // __v is mongoose version key
+      return res.status(200).json(profile); // Return profile including password for UserContext to handle
     } catch (error) {
       console.error('Error loading profile:', error);
       return res.status(500).json({ error: 'Failed to load profile. An internal error occurred.' });

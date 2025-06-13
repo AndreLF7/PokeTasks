@@ -7,6 +7,8 @@ import {
     AVATAR_OPTIONS,
     DEFAULT_AVATAR_ID,
     GYM_LEADERS,
+    MIN_LEVEL_FOR_BOOSTED_HABIT,
+    MIN_LEVEL_FOR_SHARED_HABITS
 } from '../constants';
 import type { AvatarOption, GymLeader } from '../types';
 
@@ -24,7 +26,7 @@ const ProfilePage: React.FC = () => {
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [cloudMessage, setCloudMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isReloadConfirmModalOpen, setIsReloadConfirmModalOpen] = useState(false);
-  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false); // State for avatar selection modal
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
 
   if (!currentUser) {
@@ -91,7 +93,7 @@ const ProfilePage: React.FC = () => {
   const handleAvatarSelectionInModal = (avatarOpt: AvatarOption) => {
     if (isAvatarUnlocked(avatarOpt)) {
       selectAvatar(avatarOpt.id);
-      setIsAvatarModalOpen(false); // Close modal after selection
+      setIsAvatarModalOpen(false); 
     }
   };
 
@@ -123,7 +125,6 @@ const ProfilePage: React.FC = () => {
         <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">{username}</h1>
       </header>
 
-      {/* Avatar Selection Modal */}
       <Modal isOpen={isAvatarModalOpen} onClose={() => setIsAvatarModalOpen(false)} title="Escolha seu Avatar">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-2 max-h-[60vh] overflow-y-auto">
           {AVATAR_OPTIONS.map((avatarOpt) => {
@@ -153,7 +154,7 @@ const ProfilePage: React.FC = () => {
               >
                 <img
                   src={avatarOpt.profileImageUrl}
-                  alt="" // Decorative, alt is on parent
+                  alt="" 
                   className={`w-24 h-24 object-contain rounded-md mx-auto ${!unlocked ? 'filter grayscale opacity-60' : ''}`}
                   loading="lazy"
                 />
@@ -177,10 +178,8 @@ const ProfilePage: React.FC = () => {
         </button>
       </Modal>
 
-
-      {/* Cloud Sync Section */}
       <section aria-labelledby="cloud-sync-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
-        <h2 id="cloud-sync-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-4 text-center">Sincronização com a Nuvem</h2>
+        <h2 id="cloud-sync-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-4 text-center">Sincronizar</h2>
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
           <button
             onClick={handleSaveToCloud}
@@ -211,55 +210,65 @@ const ProfilePage: React.FC = () => {
         </p>
       </section>
 
-      {/* XP and Level Section */}
-      <section aria-labelledby="xp-level-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
-        <h2 id="xp-level-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-4">Nível de Treinador: <span className="text-white">{levelInfo.level}</span></h2>
-        <div className="mb-2">
-          <div className="flex justify-between text-sm text-slate-300 mb-1" aria-live="polite">
-            <span>XP Atual: {experiencePoints.toLocaleString('pt-BR')}</span>
-            {!levelInfo.isMaxLevel ? (
-              <span>Próximo Nível em: {levelInfo.xpToNextLevelDisplay} XP</span>
-            ) : (
-              <span className="text-green-400 font-semibold">Nível Máximo Alcançado!</span>
-            )}
-          </div>
-          <div className="w-full bg-slate-700 rounded-full h-6 sm:h-8 relative overflow-hidden border-2 border-slate-600">
-            <div
-              className="bg-gradient-to-r from-yellow-400 to-amber-500 h-full rounded-full transition-all duration-500 ease-out flex items-center justify-center"
-              style={{ width: `${levelInfo.xpProgressPercent}%` }}
-              role="progressbar"
-              aria-valuenow={levelInfo.xpProgressPercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`Progresso de XP: ${levelInfo.xpProgressPercent.toFixed(1)}%`}
-              title={`${levelInfo.xpProgressPercent.toFixed(1)}% para o próximo nível`}
-            >
-                <span className="text-xs sm:text-sm font-bold text-slate-800 px-2" aria-hidden="true">
-                  {levelInfo.isMaxLevel ? "MAX XP" : `${levelInfo.currentXPInLevelDisplay.toLocaleString('pt-BR')} / ${levelInfo.totalXPForThisLevelSpanDisplay.toLocaleString('pt-BR')} XP`}
-                </span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section aria-labelledby="xp-level-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
+          <h2 id="xp-level-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-4">Nível de Treinador: <span className="text-white">{levelInfo.level}</span></h2>
+          <div className="mb-2">
+            <div className="flex justify-between text-sm text-slate-300 mb-1" aria-live="polite">
+              <span>XP Atual: {experiencePoints.toLocaleString('pt-BR')}</span>
+              {!levelInfo.isMaxLevel ? (
+                <span>Próximo Nível em: {levelInfo.xpToNextLevelDisplay} XP</span>
+              ) : (
+                <span className="text-green-400 font-semibold">Nível Máximo Alcançado!</span>
+              )}
+            </div>
+            <div className="w-full bg-slate-700 rounded-full h-6 sm:h-8 relative overflow-hidden border-2 border-slate-600">
+              <div
+                className="bg-gradient-to-r from-yellow-400 to-amber-500 h-full rounded-full transition-all duration-500 ease-out flex items-center justify-center"
+                style={{ width: `${levelInfo.xpProgressPercent}%` }}
+                role="progressbar"
+                aria-valuenow={levelInfo.xpProgressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Progresso de XP: ${levelInfo.xpProgressPercent.toFixed(1)}%`}
+                title={`${levelInfo.xpProgressPercent.toFixed(1)}% para o próximo nível`}
+              >
+                  <span className="text-xs sm:text-sm font-bold text-slate-800 px-2" aria-hidden="true">
+                    {levelInfo.isMaxLevel ? "MAX XP" : `${levelInfo.currentXPInLevelDisplay.toLocaleString('pt-BR')} / ${levelInfo.totalXPForThisLevelSpanDisplay.toLocaleString('pt-BR')} XP`}
+                  </span>
+              </div>
             </div>
           </div>
-        </div>
-         {levelInfo.isMaxLevel && <p className="text-sm text-green-400 text-center mt-2">Parabéns por alcançar o nível máximo!</p>}
-         
-        <div className="mt-6 text-center">
-            <button
-                onClick={claimLevelRewards}
-                disabled={!canClaimLevelRewards}
-                className={`font-bold py-3 px-6 rounded-lg transition-colors shadow-md w-full sm:w-auto
-                    ${canClaimLevelRewards 
-                        ? 'bg-yellow-500 hover:bg-yellow-600 text-slate-900' 
-                        : 'bg-slate-600 text-slate-400 cursor-not-allowed'}`}
-                aria-live="polite"
-                aria-disabled={!canClaimLevelRewards}
-            >
-                {canClaimLevelRewards ? "Resgatar Recompensas de Nível" : (levelInfo.isMaxLevel && !canClaimLevelRewards ? "Todas Recompensas de Nível Resgatadas" : "Nenhuma Recompensa de Nível Pendente")}
-            </button>
-            {canClaimLevelRewards && <p className="text-xs text-yellow-200 mt-2">Você tem recompensas de nível para resgatar!</p>}
-        </div>
-      </section>
+          {levelInfo.isMaxLevel && <p className="text-sm text-green-400 text-center mt-2">Parabéns por alcançar o nível máximo!</p>}
+          
+          <div className="mt-6 text-center">
+              <button
+                  onClick={claimLevelRewards}
+                  disabled={!canClaimLevelRewards}
+                  className={`font-bold py-3 px-6 rounded-lg transition-colors shadow-md w-full sm:w-auto
+                      ${canClaimLevelRewards 
+                          ? 'bg-yellow-500 hover:bg-yellow-600 text-slate-900' 
+                          : 'bg-slate-600 text-slate-400 cursor-not-allowed'}`}
+                  aria-live="polite"
+                  aria-disabled={!canClaimLevelRewards}
+              >
+                  {canClaimLevelRewards ? "Resgatar Recompensas de Nível" : (levelInfo.isMaxLevel && !canClaimLevelRewards ? "Todas Recompensas de Nível Resgatadas" : "Nenhuma Recompensa de Nível Pendente")}
+              </button>
+              {canClaimLevelRewards && <p className="text-xs text-yellow-200 mt-2">Você tem recompensas de nível para resgatar!</p>}
+          </div>
+        </section>
 
-      {/* General Stats Section */}
+        <section aria-labelledby="level-rewards-info-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
+            <h2 id="level-rewards-info-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-4">Recompensas por Nível</h2>
+            <ul className="space-y-2 text-slate-300 text-sm sm:text-base">
+                <li><strong className="text-slate-100">Nível {MIN_LEVEL_FOR_BOOSTED_HABIT}:</strong> Desbloqueia <strong className="text-yellow-200">Hábito em Foco</strong>. Escolha um hábito para ganhar 2 Pokébolas e XP em dobro ao completá-lo.</li>
+                <li><strong className="text-slate-100">Nível {MIN_LEVEL_FOR_SHARED_HABITS}:</strong> Desbloqueia <strong className="text-yellow-200">Encrenca em Dobro</strong>. Compartilhe hábitos com outros treinadores e ganhem recompensas juntos.</li>
+                <li className="italic text-slate-400 mt-2">Outras recompensas como Pokébolas e itens são concedidas ao alcançar novos níveis. Resgate-as acima!</li>
+            </ul>
+        </section>
+      </div>
+
+
       <section aria-labelledby="general-stats-heading" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <h2 id="general-stats-heading" className="sr-only">Estatísticas Gerais</h2>
         <div className="bg-slate-800 p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow">

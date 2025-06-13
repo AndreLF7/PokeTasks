@@ -40,6 +40,13 @@ export const MAX_PLAYER_LEVEL = LEVEL_THRESHOLDS.length;
 export const MIN_LEVEL_FOR_SHARED_HABITS = 3;
 export const MAX_SHARED_HABITS_PER_PARTNER = 1; // Enforced by logic, not just display
 
+// Habit Boost constants
+export const MIN_LEVEL_FOR_BOOSTED_HABIT = 2;
+export const BOOSTED_HABIT_XP_MULTIPLIER = 2;
+export const BOOSTED_HABIT_POKEBALL_REWARD = 2;
+export const NORMAL_HABIT_POKEBALL_REWARD = 1;
+
+
 // Special Pikachu (1st gen) constants
 export const PIKACHU_1ST_GEN_NAME = "Pikachu (1st gen)";
 export const PIKACHU_1ST_GEN_SPRITE_URL = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-i/red-blue/transparent/25.png";

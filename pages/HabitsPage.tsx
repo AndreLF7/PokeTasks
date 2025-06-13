@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
@@ -6,7 +7,7 @@ import HabitItem from '../components/HabitItem';
 import { CaughtPokemon, BallType } from '../types';
 import Modal from '../components/Modal';
 import PokemonCard from '../components/PokemonCard';
-import { getTranslatedBallName } from '../constants';
+import { getTranslatedBallName, MIN_LEVEL_FOR_BOOSTED_HABIT } from '../constants';
 
 const BallIcon: React.FC<{ type: BallType; onClick?: () => void; isButton?: boolean }> = ({ type, onClick, isButton = true }) => {
   let spriteUrl = "";
@@ -59,19 +60,22 @@ const HabitsPage: React.FC = () => {
     catchFromMasterBall, 
     confirmHabitCompletion, 
     deleteHabit,
-    toggleShareHabitsPublicly // Added function
+    toggleShareHabitsPublicly,
+    toggleHabitBoost, // Added for habit boost
+    calculatePlayerLevelInfo // To check player level
   } = useUser();
   const [revealedPokemon, setRevealedPokemon] = useState<CaughtPokemon | null>(null);
-  const [isCatchModalOpen, setIsCatchModalOpen] = useState(false); // Renamed from isModalOpen
+  const [isCatchModalOpen, setIsCatchModalOpen] = useState(false);
   const [ballUsed, setBallUsed] = useState<BallType | null>(null);
   const [timeLeftForReset, setTimeLeftForReset] = useState<string>("Calculando...");
 
-  // State for habit confirmation modal
   const [isHabitConfirmModalOpen, setIsHabitConfirmModalOpen] = useState(false);
   const [habitToConfirmId, setHabitToConfirmId] = useState<string | null>(null);
 
   const TEST_USER_USERNAME = "Testmon";
 
+  const playerLevel = currentUser ? calculatePlayerLevelInfo(currentUser.experiencePoints).level : 0;
+  const canBoostHabits = playerLevel >= MIN_LEVEL_FOR_BOOSTED_HABIT;
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -114,7 +118,7 @@ const HabitsPage: React.FC = () => {
       caught = catchFromGreatBall();
     } else if (type === 'ultra' && (isTestUser || currentUser.ultraBalls > 0)) {
       caught = catchFromUltraBall();
-    } else if (type === 'master' && currentUser.masterBalls > 0) { // Master balls always consumed
+    } else if (type === 'master' && currentUser.masterBalls > 0) {
       caught = catchFromMasterBall();
     }
 
@@ -131,7 +135,6 @@ const HabitsPage: React.FC = () => {
     setBallUsed(null);
   };
 
-  // Habit Confirmation Modal Logic
   const openHabitConfirmationModal = (habitId: string) => {
     setHabitToConfirmId(habitId);
     setIsHabitConfirmModalOpen(true);
@@ -153,7 +156,7 @@ const HabitsPage: React.FC = () => {
 
   if (!currentUser) return <p className="text-center text-xl py-10">Carregando dados do usuário...</p>;
 
-  const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions, shareHabitsPublicly } = currentUser;
+  const { habits, pokeBalls, greatBalls, ultraBalls, masterBalls, dailyCompletions, shareHabitsPublicly, boostedHabitId } = currentUser;
   const isTestUser = currentUser.username === TEST_USER_USERNAME;
   
   return (
@@ -162,11 +165,16 @@ const HabitsPage: React.FC = () => {
         <h1 className="text-4xl font-bold text-yellow-400 mb-2">Hábitos Diários</h1>
         <p className="text-slate-300 text-lg">Complete hábitos para ganhar recompensas!</p>
         <ul className="text-slate-400 text-sm list-disc list-inside mt-1">
-            <li>{getTranslatedBallName('poke')}: Concedida por cada conclusão confirmada.</li>
+            <li>{getTranslatedBallName('poke')}: Concedida por cada conclusão confirmada (ou 2 se o hábito estiver "Em Foco").</li>
             <li>{getTranslatedBallName('great')}: Também concedida a cada 5ª conclusão confirmada no dia.</li>
             <li>{getTranslatedBallName('ultra')}: Também concedida a cada 10ª conclusão confirmada no dia.</li>
             <li>{getTranslatedBallName('master')}: Disponível apenas através de trocas especiais.</li>
         </ul>
+        {canBoostHabits && (
+            <p className="text-slate-400 text-sm mt-1">
+                ✨ Use o botão "Foco" para escolher um hábito e ganhar recompensas em dobro por ele! (Desbloqueado no Nível {MIN_LEVEL_FOR_BOOSTED_HABIT})
+            </p>
+        )}
         <div className="flex items-center mt-1">
             <p className="text-slate-400 text-md">
             Conclusões de Hoje: <span className="font-semibold text-yellow-300">{dailyCompletions}</span>.
@@ -198,6 +206,10 @@ const HabitsPage: React.FC = () => {
               habit={habit} 
               onAttemptComplete={openHabitConfirmationModal}
               onDelete={deleteHabit}
+              isBoosted={habit.id === boostedHabitId}
+              canBoost={canBoostHabits}
+              onToggleBoost={toggleHabitBoost}
+              isAnyHabitBoosted={!!boostedHabitId}
             />
           ))}
         </ul>
@@ -209,7 +221,6 @@ const HabitsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Share Habits Checkbox Section */}
       <div className="my-6 p-4 bg-slate-800 rounded-lg shadow-md">
         <label className="flex items-center space-x-3 cursor-pointer">
           <input
@@ -275,7 +286,7 @@ const HabitsPage: React.FC = () => {
             </div>
           )}
 
-          {masterBalls > 0 && ( // Master balls are not infinite for Testmon
+          {masterBalls > 0 && ( 
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-purple-400 mb-3">Suas {getTranslatedBallName('master', true)}: <span className="text-white">{masterBalls}</span></h2>
               <div className="flex flex-wrap gap-4 items-center justify-start">
@@ -318,7 +329,6 @@ const HabitsPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* Habit Confirmation Modal */}
       <Modal isOpen={isHabitConfirmModalOpen} onClose={handleCancelHabitConfirmation} title="Confirmar Hábito">
         <div className="text-center">
           <p className="text-lg text-slate-300 mb-6">

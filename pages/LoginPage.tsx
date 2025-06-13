@@ -4,22 +4,31 @@ import { useUser } from '../contexts/UserContext';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState(''); // Added password state
   const { login } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim()) {
-      setIsLoading(true);
-      setErrorMessage(null);
-      const result = await login(username.trim());
-      setIsLoading(false);
-      if (!result.success) {
-        setErrorMessage(result.message || "Falha no login. Tente novamente.");
-      }
-      // Navigation will happen automatically if login is successful due to App.tsx logic
+    if (!username.trim()) {
+      setErrorMessage("Por favor, insira seu nome de treinador.");
+      return;
     }
+    if (!password) { // Check if password is empty
+      setErrorMessage("Por favor, insira sua senha.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+    // Pass password to login function
+    const result = await login(username.trim(), password);
+    setIsLoading(false);
+    if (!result.success) {
+      setErrorMessage(result.message || "Falha no login. Verifique seu nome de usuário e senha.");
+    }
+    // Navigation will happen automatically if login is successful due to App.tsx logic
   };
 
   return (
@@ -31,7 +40,7 @@ const LoginPage: React.FC = () => {
           className="w-32 h-32 mx-auto mb-6"
         />
         <h1 className="text-3xl font-bold text-yellow-400 mb-6">Bem-vindo, Treinador!</h1>
-        <p className="text-slate-300 mb-8">Digite seu nome para começar sua jornada de Hábitos Pokémon.</p>
+        <p className="text-slate-300 mb-8">Digite seu nome e senha para começar sua jornada de Hábitos Pokémon.</p>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-1 text-left">
@@ -46,17 +55,35 @@ const LoginPage: React.FC = () => {
               placeholder="Ex: Ash Ketchum"
               required
               disabled={isLoading}
+              aria-label="Nome do Treinador"
             />
           </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1 text-left">
+              Senha
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none"
+              placeholder="Sua senha secreta"
+              required
+              disabled={isLoading}
+              aria-label="Senha"
+            />
+             <p className="text-xs text-slate-400 mt-1 text-left">Se for seu primeiro login, esta será sua senha.</p>
+          </div>
           {errorMessage && (
-            <p className="text-sm text-red-400 bg-red-900 bg-opacity-50 p-2 rounded-md">{errorMessage}</p>
+            <p className="text-sm text-red-400 bg-red-900 bg-opacity-50 p-2 rounded-md" role="alert">{errorMessage}</p>
           )}
           <button
             type="submit"
             className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-3 px-4 rounded-lg transition-colors text-lg shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
-            disabled={isLoading || !username.trim()}
+            disabled={isLoading || !username.trim() || !password}
           >
-            {isLoading ? 'Verificando na nuvem...' : 'Login'}
+            {isLoading ? 'Verificando...' : 'Login'}
           </button>
         </form>
       </div>

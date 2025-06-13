@@ -44,7 +44,7 @@ const Navbar: React.FC = () => {
           <div className="flex items-center space-x-2">
             {/* Avatar removed from here (desktop view beside title) */}
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Pokeball Icon" className="h-8 w-8"/>
-            <NavLink to="/" onClick={closeMobileMenu} className="text-xl font-bold text-yellow-400">Pokémon Habits</NavLink>
+            <NavLink to="/" onClick={closeMobileMenu} className="text-xl font-bold text-yellow-400">PokéHabits</NavLink>
           </div>
 
           {/* Desktop Menu (Links & Save Button) */}

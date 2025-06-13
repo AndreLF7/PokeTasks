@@ -69,7 +69,7 @@ const getTodayDateStringLocal = () => {
 };
 
 // Constants for shared habit rewards (can be moved to a shared constants file if needed)
-const XP_PER_SHARED_HABIT_JOINT_COMPLETION = 5; 
+const XP_PER_SHARED_HABIT_JOINT_COMPLETION = 20; 
 const POKEBALLS_PER_SHARED_HABIT_JOINT_COMPLETION = 1;
 
 
