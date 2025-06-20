@@ -12,6 +12,14 @@ const HabitSchema = new mongoose.Schema({
   totalCompletions: Number,
 }, { _id: false });
 
+const ProgressionHabitSchema = new mongoose.Schema({
+  id: String,
+  mainHabitId: String,
+  text: String,
+  completedToday: Boolean,
+  totalCompletions: Number,
+}, { _id: false });
+
 const CaughtPokemonSchema = new mongoose.Schema({
   id: Number,
   name: String,
@@ -29,26 +37,38 @@ const CompletionHistorySchema = new mongoose.Schema({
 
 const UserProfileSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, index: true },
-  password: { type: String }, // Added password field
+  password: { type: String }, 
   habits: [HabitSchema],
+  progressionHabits: [ProgressionHabitSchema], // Added progression habits
   caughtPokemon: [CaughtPokemonSchema],
   pokeBalls: Number,
   greatBalls: Number,
   ultraBalls: Number,
   masterBalls: Number,
+  taskCoins: { type: Number, default: 0 }, // Added task coins
   dailyCompletions: Number,
   lastResetDate: String, 
   shinyCaughtPokemonIds: [Number],
-  dailyStreak: Number,
-  lastStreakUpdateDate: String, 
+  
+  dailyStreak: { type: Number, default: 0 },
+  lastStreakUpdateDate: { type: String, default: "" },
   lastStreakDayClaimedForReward: { type: Number, default: 0 },
+
+  fiveHabitStreak: { type: Number, default: 0 },
+  lastFiveHabitStreakUpdateDate: { type: String, default: "" },
+  lastFiveHabitStreakDayClaimedForReward: { type: Number, default: 0 },
+
+  tenHabitStreak: { type: Number, default: 0 },
+  lastTenHabitStreakUpdateDate: { type: String, default: "" },
+  lastTenHabitStreakDayClaimedForReward: { type: Number, default: 0 },
+  
   completionHistory: [CompletionHistorySchema],
-  experiencePoints: Number,
+  experiencePoints: { type: Number, default: 0 },
   shareHabitsPublicly: { type: Boolean, default: false },
   lastLevelRewardClaimed: { type: Number, default: 1 },
-  maxHabitSlots: { type: Number, default: 10 },
+  maxHabitSlots: { type: Number, default: 10 }, // This is for main habits
   avatarId: { type: String, default: 'red' }, 
-  boostedHabitId: { type: String, default: null }, // Added boostedHabitId field
+  boostedHabitId: { type: String, default: null }, 
   sharedHabitStreaks: { type: Map, of: Number, default: {} }, 
   lastSharedHabitCompletionResetDate: { type: String, default: '' }, 
 });
@@ -95,22 +115,35 @@ export default async function handler(req, res) {
       }
 
       // Ensure defaults for new fields if not present
+      profileData.taskCoins = profileData.taskCoins ?? 0;
+      profileData.progressionHabits = profileData.progressionHabits ?? [];
       profileData.lastStreakDayClaimedForReward = profileData.lastStreakDayClaimedForReward ?? 0;
+      profileData.dailyStreak = profileData.dailyStreak ?? 0;
+      profileData.lastStreakUpdateDate = profileData.lastStreakUpdateDate ?? "";
+
+      profileData.fiveHabitStreak = profileData.fiveHabitStreak ?? 0;
+      profileData.lastFiveHabitStreakUpdateDate = profileData.lastFiveHabitStreakUpdateDate ?? "";
+      profileData.lastFiveHabitStreakDayClaimedForReward = profileData.lastFiveHabitStreakDayClaimedForReward ?? 0;
+
+      profileData.tenHabitStreak = profileData.tenHabitStreak ?? 0;
+      profileData.lastTenHabitStreakUpdateDate = profileData.lastTenHabitStreakUpdateDate ?? "";
+      profileData.lastTenHabitStreakDayClaimedForReward = profileData.lastTenHabitStreakDayClaimedForReward ?? 0;
+
       profileData.shareHabitsPublicly = profileData.shareHabitsPublicly ?? false;
       profileData.lastLevelRewardClaimed = profileData.lastLevelRewardClaimed ?? 1;
       profileData.maxHabitSlots = 10; 
       profileData.avatarId = profileData.avatarId ?? 'red';
-      profileData.boostedHabitId = profileData.boostedHabitId === undefined ? null : profileData.boostedHabitId; // Allow null
+      profileData.boostedHabitId = profileData.boostedHabitId === undefined ? null : profileData.boostedHabitId; 
       profileData.sharedHabitStreaks = profileData.sharedHabitStreaks ?? {};
       profileData.lastSharedHabitCompletionResetDate = profileData.lastSharedHabitCompletionResetDate ?? '';
-      // Password is intentionally not defaulted here, it's set on creation/first update if missing.
+      
 
       const updatedProfile = await UserProfileModel.findOneAndUpdate(
         { username: profileData.username },
         profileData,
         { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
       );
-      // Do not return password in response
+      
       const { password, ...profileToReturn } = updatedProfile.toObject();
       return res.status(200).json({ message: 'Profile saved successfully.', profile: profileToReturn });
     } catch (error) {
@@ -129,19 +162,28 @@ export default async function handler(req, res) {
       }
       
       // Ensure new fields have defaults if loading an older document
+      profile.taskCoins = profile.taskCoins ?? 0;
+      profile.progressionHabits = profile.progressionHabits ?? [];
       profile.lastLevelRewardClaimed = profile.lastLevelRewardClaimed ?? 1;
       profile.maxHabitSlots = 10; 
       profile.avatarId = profile.avatarId ?? 'red';
-      profile.boostedHabitId = profile.boostedHabitId === undefined ? null : profile.boostedHabitId; // Allow null
+      profile.boostedHabitId = profile.boostedHabitId === undefined ? null : profileData.boostedHabitId; 
       profile.sharedHabitStreaks = profile.sharedHabitStreaks ?? {};
       profile.lastSharedHabitCompletionResetDate = profile.lastSharedHabitCompletionResetDate ?? '';
-      
-      // Password exists in 'profile' here from DB
-      // We'll let the UserContext decide if it needs to be set/used
 
-      delete profile._id; // _id is mongoose specific
-      delete profile.__v; // __v is mongoose version key
-      return res.status(200).json(profile); // Return profile including password for UserContext to handle
+      profile.dailyStreak = profile.dailyStreak ?? 0;
+      profile.lastStreakUpdateDate = profile.lastStreakUpdateDate ?? "";
+      profile.lastStreakDayClaimedForReward = profile.lastStreakDayClaimedForReward ?? 0;
+      profile.fiveHabitStreak = profile.fiveHabitStreak ?? 0;
+      profile.lastFiveHabitStreakUpdateDate = profile.lastFiveHabitStreakUpdateDate ?? "";
+      profile.lastFiveHabitStreakDayClaimedForReward = profile.lastFiveHabitStreakDayClaimedForReward ?? 0;
+      profile.tenHabitStreak = profile.tenHabitStreak ?? 0;
+      profile.lastTenHabitStreakUpdateDate = profile.lastTenHabitStreakUpdateDate ?? "";
+      profile.lastTenHabitStreakDayClaimedForReward = profile.lastTenHabitStreakDayClaimedForReward ?? 0;
+      
+      delete profile._id; 
+      delete profile.__v; 
+      return res.status(200).json(profile); 
     } catch (error) {
       console.error('Error loading profile:', error);
       return res.status(500).json({ error: 'Failed to load profile. An internal error occurred.' });

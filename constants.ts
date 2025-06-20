@@ -20,6 +20,13 @@ export const XP_FROM_GREATBALL = 15;
 export const XP_FROM_ULTRABALL = 40;
 export const XP_FROM_MASTERBALL = 100; // Master Balls grant significant XP
 
+// Task Coin Rewards
+export const TASK_COINS_FROM_POKEBALL = 1;
+export const TASK_COINS_FROM_GREATBALL = 5;
+export const TASK_COINS_FROM_ULTRABALL = 10;
+export const TASK_COINS_FROM_MASTERBALL = 25;
+
+
 // Total XP required to reach each level. Index + 1 = Level.
 export const LEVEL_THRESHOLDS: number[] = [
   0,    // Start (Level 1)
@@ -45,6 +52,12 @@ export const MIN_LEVEL_FOR_BOOSTED_HABIT = 2;
 export const BOOSTED_HABIT_XP_MULTIPLIER = 2;
 export const BOOSTED_HABIT_POKEBALL_REWARD = 2;
 export const NORMAL_HABIT_POKEBALL_REWARD = 1;
+
+// Habit Progression constants
+export const MIN_LEVEL_FOR_PROGRESSION_L1 = 5;
+export const PROGRESSION_SLOTS_L1 = 5;
+export const MIN_LEVEL_FOR_PROGRESSION_L2 = 10;
+export const PROGRESSION_SLOTS_L2 = 10;
 
 
 // Special Pikachu (1st gen) constants

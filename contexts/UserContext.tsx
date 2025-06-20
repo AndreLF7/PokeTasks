@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useEffect, useContext, useCallback, ReactNode } from 'react';
-import { UserProfile, Habit, CaughtPokemon, BallType, TradeOffer, GymLeader, SharedHabitDisplayInfo, SharedHabit } from '../types'; // Added SharedHabit types
+import { UserProfile, Habit, CaughtPokemon, BallType, TradeOffer, GymLeader, SharedHabitDisplayInfo, SharedHabit, ProgressionHabit } from '../types'; // Added SharedHabit types
 import {
   POKEMON_MASTER_LIST,
   POKEMON_API_SPRITE_URL,
@@ -18,6 +18,10 @@ import {
   XP_FROM_GREATBALL,
   XP_FROM_ULTRABALL,
   XP_FROM_MASTERBALL,
+  TASK_COINS_FROM_POKEBALL, // Added
+  TASK_COINS_FROM_GREATBALL, // Added
+  TASK_COINS_FROM_ULTRABALL, // Added
+  TASK_COINS_FROM_MASTERBALL, // Added
   PIKACHU_1ST_GEN_NAME,
   PIKACHU_1ST_GEN_SPRITE_URL,
   GYM_LEADERS,
@@ -25,10 +29,14 @@ import {
   MAX_PLAYER_LEVEL,
   MIN_LEVEL_FOR_SHARED_HABITS,
   DEFAULT_AVATAR_ID,
-  MIN_LEVEL_FOR_BOOSTED_HABIT, // Added
-  BOOSTED_HABIT_XP_MULTIPLIER, // Added
-  BOOSTED_HABIT_POKEBALL_REWARD, // Added
-  NORMAL_HABIT_POKEBALL_REWARD, // Added
+  MIN_LEVEL_FOR_BOOSTED_HABIT, 
+  BOOSTED_HABIT_XP_MULTIPLIER, 
+  BOOSTED_HABIT_POKEBALL_REWARD, 
+  NORMAL_HABIT_POKEBALL_REWARD,
+  MIN_LEVEL_FOR_PROGRESSION_L1, // Added
+  PROGRESSION_SLOTS_L1, // Added
+  MIN_LEVEL_FOR_PROGRESSION_L2, // Added
+  PROGRESSION_SLOTS_L2, // Added
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants';
 
@@ -55,7 +63,7 @@ interface SharedHabitsState {
 interface UserContextType {
   currentUser: UserProfile | null;
   loading: boolean;
-  login: (username: string, password?: string) => Promise<{ success: boolean; message?: string }>; // Added password
+  login: (username: string, password?: string) => Promise<{ success: boolean; message?: string }>; 
   logout: () => void;
   addHabit: (text: string) => void;
   confirmHabitCompletion: (habitId: string) => void;
@@ -77,7 +85,14 @@ interface UserContextType {
   clearToastMessage: () => void;
   setToastMessage: (text: string, type?: 'info' | 'success' | 'error', leaderImageUrl?: string) => void; 
   calculatePlayerLevelInfo: (totalXP: number) => LevelInfo;
-  toggleHabitBoost: (habitId: string) => void; // Added for habit boost
+  toggleHabitBoost: (habitId: string) => void; 
+
+  // Progression Habits
+  addProgressionHabit: (mainHabitId: string, text: string) => void;
+  confirmProgressionHabitCompletion: (progressionHabitId: string) => void;
+  deleteProgressionHabit: (progressionHabitId: string) => void;
+  calculateMaxProgressionSlots: (level: number) => number;
+
 
   sharedHabitsData: SharedHabitsState;
   fetchSharedHabitsData: () => Promise<void>;
@@ -102,8 +117,12 @@ const generateInstanceId = (): string => Date.now().toString(36) + Math.random()
 const MAX_HISTORY_ENTRIES = 60;
 
 const parseLocalDateStr = (dateStr: string): Date => {
+  if (!dateStr || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return new Date(0); 
+  }
   return new Date(Number(dateStr.substring(0,4)), Number(dateStr.substring(5,7))-1, Number(dateStr.substring(8,10)));
 };
+
 
 const formatDateToLocalStr = (date: Date): string => {
   const year = date.getFullYear();
@@ -156,6 +175,12 @@ const calculatePlayerLevelInfoInternal = (totalXP: number): LevelInfo => {
   };
 };
 
+const calculateMaxProgressionSlotsInternal = (level: number): number => {
+    if (level >= MIN_LEVEL_FOR_PROGRESSION_L2) return PROGRESSION_SLOTS_L2;
+    if (level >= MIN_LEVEL_FOR_PROGRESSION_L1) return PROGRESSION_SLOTS_L1;
+    return 0;
+};
+
 
 interface UserProviderProps {
   children: ReactNode;
@@ -193,13 +218,19 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const num = Number(value);
         return isNaN(num) || !isFinite(num) ? defaultValue : num;
       };
+      
+      const parseDateField = (value: any, defaultValue: string = ""): string => {
+         return (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}$/)) ? value : defaultValue;
+      };
+
 
       profile.username = String(profile.username || 'Treinador');
-      profile.password = typeof profile.password === 'string' ? profile.password : undefined; // Initialize password
+      profile.password = typeof profile.password === 'string' ? profile.password : undefined; 
       profile.pokeBalls = parseNumericField(profile.pokeBalls, 0);
       profile.greatBalls = parseNumericField(profile.greatBalls, 0);
       profile.ultraBalls = parseNumericField(profile.ultraBalls, 0);
       profile.masterBalls = parseNumericField(profile.masterBalls, 0);
+      profile.taskCoins = parseNumericField(profile.taskCoins, 0); // Initialize taskCoins
 
       if (typeof profile.completionsTowardsGreatBall === 'number' && typeof profile.dailyCompletions !== 'number') {
         profile.dailyCompletions = profile.completionsTowardsGreatBall;
@@ -212,10 +243,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         : [];
 
       profile.dailyStreak = parseNumericField(profile.dailyStreak, 0);
-      profile.lastStreakUpdateDate = (typeof profile.lastStreakUpdateDate === 'string' && profile.lastStreakUpdateDate.match(/^\d{4}-\d{2}-\d{2}$/))
-        ? profile.lastStreakUpdateDate
-        : "";
+      profile.lastStreakUpdateDate = parseDateField(profile.lastStreakUpdateDate, "");
       profile.lastStreakDayClaimedForReward = parseNumericField(profile.lastStreakDayClaimedForReward, 0);
+
+      profile.fiveHabitStreak = parseNumericField(profile.fiveHabitStreak, 0);
+      profile.lastFiveHabitStreakUpdateDate = parseDateField(profile.lastFiveHabitStreakUpdateDate, "");
+      profile.lastFiveHabitStreakDayClaimedForReward = parseNumericField(profile.lastFiveHabitStreakDayClaimedForReward, 0);
+
+      profile.tenHabitStreak = parseNumericField(profile.tenHabitStreak, 0);
+      profile.lastTenHabitStreakUpdateDate = parseDateField(profile.lastTenHabitStreakUpdateDate, "");
+      profile.lastTenHabitStreakDayClaimedForReward = parseNumericField(profile.lastTenHabitStreakDayClaimedForReward, 0);
       
       profile.completionHistory = (Array.isArray(profile.completionHistory)
         ? profile.completionHistory.filter((item: any) =>
@@ -307,44 +344,56 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           };
         })
         .filter((h: Habit) => h.id && h.text);
+      
+      profile.progressionHabits = (Array.isArray(profile.progressionHabits) ? profile.progressionHabits : [])
+        .map((ph: any): ProgressionHabit | null => {
+            if (typeof ph !== 'object' || ph === null) {
+                return null;
+            }
+            return {
+                id: (typeof ph.id === 'string' && ph.id) ? ph.id : generateInstanceId(),
+                mainHabitId: (typeof ph.mainHabitId === 'string' && ph.mainHabitId) ? ph.mainHabitId : '',
+                text: (typeof ph.text === 'string' && ph.text.trim()) ? ph.text.trim() : 'Hábito de Progressão Sem Nome',
+                completedToday: typeof ph.completedToday === 'boolean' ? ph.completedToday : false,
+                totalCompletions: parseNumericField(ph.totalCompletions, 0),
+            };
+        })
+        .filter((ph: ProgressionHabit | null): ph is ProgressionHabit => ph !== null && !!ph.mainHabitId && !!ph.text);
 
-      profile.lastResetDate = (typeof profile.lastResetDate === 'string' && profile.lastResetDate.match(/^\d{4}-\d{2}-\d{2}$/))
-        ? profile.lastResetDate
-        : getTodayDateString();
 
+      profile.lastResetDate = parseDateField(profile.lastResetDate, getTodayDateString());
       profile.avatarId = typeof profile.avatarId === 'string' ? profile.avatarId : DEFAULT_AVATAR_ID;
-
       profile.experiencePoints = parseNumericField(profile.experiencePoints, 0);
       profile.shareHabitsPublicly = typeof profile.shareHabitsPublicly === 'boolean' ? profile.shareHabitsPublicly : false;
       profile.lastLevelRewardClaimed = parseNumericField(profile.lastLevelRewardClaimed, 1);
-      
       profile.maxHabitSlots = INITIAL_MAX_HABIT_SLOTS;
-      profile.boostedHabitId = (typeof profile.boostedHabitId === 'string' && profile.boostedHabitId) ? profile.boostedHabitId : null; // Initialize boostedHabitId
-
+      profile.boostedHabitId = (typeof profile.boostedHabitId === 'string' && profile.boostedHabitId) ? profile.boostedHabitId : null; 
       profile.sharedHabitStreaks = (typeof profile.sharedHabitStreaks === 'object' && profile.sharedHabitStreaks !== null && !Array.isArray(profile.sharedHabitStreaks))
         ? profile.sharedHabitStreaks
         : {};
-      profile.lastSharedHabitCompletionResetDate = (typeof profile.lastSharedHabitCompletionResetDate === 'string' && profile.lastSharedHabitCompletionResetDate.match(/^\d{4}-\d{2}-\d{2}$/))
-        ? profile.lastSharedHabitCompletionResetDate
-        : getTodayDateString(); 
+      profile.lastSharedHabitCompletionResetDate = parseDateField(profile.lastSharedHabitCompletionResetDate, getTodayDateString()); 
 
       return profile as UserProfile;
     } catch (error) {
       console.error("UserContext: CRITICAL - Unhandled error in initializeProfileFields. Returning default profile.", error, "Input data:", profileInput);
+      const todayStr = getTodayDateString();
       return {
-        username: 'Treinador', password: undefined, habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
-        dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
-        dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
-        experiencePoints: 0, shareHabitsPublicly: false,
+        username: 'Treinador', password: undefined, habits: [], progressionHabits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0, taskCoins: 0,
+        dailyCompletions: 0, lastResetDate: todayStr, shinyCaughtPokemonIds: [],
+        dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, 
+        fiveHabitStreak: 0, lastFiveHabitStreakUpdateDate: "", lastFiveHabitStreakDayClaimedForReward: 0,
+        tenHabitStreak: 0, lastTenHabitStreakUpdateDate: "", lastTenHabitStreakDayClaimedForReward: 0,
+        completionHistory: [], experiencePoints: 0, shareHabitsPublicly: false,
         lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
         boostedHabitId: null,
-        sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
+        sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: todayStr,
       };
     }
   }, []);
 
   const handleDayRollover = useCallback((profile: UserProfile): UserProfile => {
     const todayLocalStr = getTodayDateString();
+    const yesterdayLocalStr = formatDateToLocalStr(new Date(new Date().setDate(new Date().getDate() - 1)));
     let updatedProfile = { ...profile };
 
     if (profile.lastResetDate !== todayLocalStr) {
@@ -358,10 +407,36 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         updatedProfile.completionHistory = newHistory;
 
         updatedProfile.habits = updatedProfile.habits.map(h => ({
-        ...h, completedToday: false, rewardClaimedToday: false,
+          ...h, completedToday: false, rewardClaimedToday: false,
+        }));
+        updatedProfile.progressionHabits = updatedProfile.progressionHabits.map(ph => ({
+          ...ph, completedToday: false,
         }));
         updatedProfile.dailyCompletions = 0;
         updatedProfile.lastResetDate = todayLocalStr;
+
+        if (updatedProfile.lastStreakUpdateDate && updatedProfile.lastStreakUpdateDate !== yesterdayLocalStr) {
+             updatedProfile.dailyStreak = 0;
+             updatedProfile.lastStreakDayClaimedForReward = 0; 
+        }
+
+        if (updatedProfile.lastFiveHabitStreakUpdateDate && updatedProfile.lastFiveHabitStreakUpdateDate !== yesterdayLocalStr) {
+            updatedProfile.fiveHabitStreak = 0;
+            updatedProfile.lastFiveHabitStreakDayClaimedForReward = 0;
+        }
+         if (!updatedProfile.lastFiveHabitStreakUpdateDate && updatedProfile.fiveHabitStreak > 0) { 
+            updatedProfile.fiveHabitStreak = 0;
+            updatedProfile.lastFiveHabitStreakDayClaimedForReward = 0;
+        }
+
+        if (updatedProfile.lastTenHabitStreakUpdateDate && updatedProfile.lastTenHabitStreakUpdateDate !== yesterdayLocalStr) {
+            updatedProfile.tenHabitStreak = 0;
+            updatedProfile.lastTenHabitStreakDayClaimedForReward = 0;
+        }
+        if (!updatedProfile.lastTenHabitStreakUpdateDate && updatedProfile.tenHabitStreak > 0) { 
+            updatedProfile.tenHabitStreak = 0;
+            updatedProfile.lastTenHabitStreakDayClaimedForReward = 0;
+        }
     }
 
     if (updatedProfile.lastSharedHabitCompletionResetDate !== todayLocalStr) {
@@ -431,7 +506,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (parsedData) {
           let initializedProfile = initializeProfileFields(parsedData);
           userProfile = handleDayRollover(initializedProfile);
-          if (JSON.stringify(userProfile) !== JSON.stringify(initializedProfile)) {
+          if (JSON.stringify(userProfile) !== JSON.stringify(initializedProfile)) { 
              localStorage.setItem('pokemonHabitUser', JSON.stringify(userProfile));
           }
         }
@@ -472,12 +547,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const intervalId = setInterval(() => {
       if (currentUser) {
         const todayLocalStr = getTodayDateString();
-        let profileChangedByDayRollover = false;
+        let profileChangedByInterval = false;
         let tempProfile = { ...currentUser };
 
         if (currentUser.lastResetDate !== todayLocalStr) {
           tempProfile = handleDayRollover(tempProfile); 
-          profileChangedByDayRollover = true;
+          profileChangedByInterval = true;
         }
         
         if (currentUser.lastSharedHabitCompletionResetDate !== todayLocalStr) {
@@ -485,10 +560,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
                  fetchSharedHabitsData(); 
             }
             tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
-            if (!profileChangedByDayRollover) profileChangedByDayRollover = true;
+            if (!profileChangedByInterval) profileChangedByInterval = true;
         }
 
-        if (profileChangedByDayRollover) {
+        if (profileChangedByInterval) {
             updateUserProfile(tempProfile);
         }
       }
@@ -496,11 +571,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return () => clearInterval(intervalId);
   }, [currentUser, handleDayRollover, updateUserProfile, fetchSharedHabitsData]);
 
-  const login = async (username: string, password?: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (username: string, passwordInput?: string): Promise<{ success: boolean; message?: string }> => {
     setLoading(true);
     const trimmedUsername = username.trim();
 
-    if (!password) {
+    if (!passwordInput) {
       setLoading(false);
       return { success: false, message: "Por favor, insira sua senha." };
     }
@@ -508,41 +583,44 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     try {
       const response = await fetch(`/api/habits?username=${encodeURIComponent(trimmedUsername)}`);
       let userProfileData;
-      let isNewUserScenario = false; // For setting password for the first time
+      let isNewUserScenario = false;
 
-      if (response.ok) { // User exists in cloud
+      if (response.ok) { 
         userProfileData = await response.json();
-        if (userProfileData.password && userProfileData.password !== password) {
+        if (userProfileData.password && userProfileData.password !== passwordInput) {
           setLoading(false);
           return { success: false, message: "Senha incorreta." };
         }
-        if (!userProfileData.password) { // Existing user, first time setting password
-          userProfileData.password = password;
-          isNewUserScenario = true; // Will trigger save later
+        if (!userProfileData.password) { 
+          userProfileData.password = passwordInput;
+          isNewUserScenario = true; 
         }
-      } else if (response.status === 404) { // User not in cloud
+      } else if (response.status === 404) { 
         const storedUsersString = localStorage.getItem('allPokemonHabitUsers');
         const storedUsers = storedUsersString ? JSON.parse(storedUsersString) : {};
         userProfileData = storedUsers[trimmedUsername];
 
-        if (userProfileData) { // User exists locally
-          if (userProfileData.password && userProfileData.password !== password) {
+        if (userProfileData) { 
+          if (userProfileData.password && userProfileData.password !== passwordInput) {
             setLoading(false);
             return { success: false, message: "Senha incorreta." };
           }
-           if (!userProfileData.password) { // Existing local user, first time setting password
-            userProfileData.password = password;
+           if (!userProfileData.password) { 
+            userProfileData.password = passwordInput;
             isNewUserScenario = true;
           }
-        } else { // Completely new user
+        } else { 
+          const todayStr = getTodayDateString();
           userProfileData = {
-            username: trimmedUsername, password: password, habits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
-            dailyCompletions: 0, lastResetDate: getTodayDateString(), shinyCaughtPokemonIds: [],
-            dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, completionHistory: [],
-            experiencePoints: 0, shareHabitsPublicly: false,
+            username: trimmedUsername, password: passwordInput, habits: [], progressionHabits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0, taskCoins: 0,
+            dailyCompletions: 0, lastResetDate: todayStr, shinyCaughtPokemonIds: [],
+            dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, 
+            fiveHabitStreak: 0, lastFiveHabitStreakUpdateDate: "", lastFiveHabitStreakDayClaimedForReward: 0,
+            tenHabitStreak: 0, lastTenHabitStreakUpdateDate: "", lastTenHabitStreakDayClaimedForReward: 0,
+            completionHistory: [], experiencePoints: 0, shareHabitsPublicly: false,
             lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
             boostedHabitId: null,
-            sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: getTodayDateString(),
+            sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: todayStr,
           };
           isNewUserScenario = true;
         }
@@ -563,8 +641,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setCurrentUser(userProfile);
       setLoading(false);
 
-      if (isNewUserScenario) { // Save new user or user with new password to cloud
-        await saveProfileToCloud(); // Fire and forget for login flow, or handle result
+      if (isNewUserScenario) { 
+        await saveProfileToCloud(); 
         return { success: true, message: userProfileData.password ? "Login bem-sucedido!" : "Senha definida e login bem-sucedido!" };
       }
       return { success: true, message: "Login bem-sucedido!" };
@@ -607,28 +685,48 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     updateUserProfile({ ...currentUser, habits: [...currentUser.habits, newHabit] });
   };
 
-  const confirmHabitCompletion = (habitId: string) => {
-    if (!currentUser) return;
+  const confirmHabitCompletionInternal = (
+      profile: UserProfile, 
+      type: 'main' | 'progression', 
+      id: string
+    ): UserProfile | null => {
+    
+    let habitToConfirm: Habit | ProgressionHabit | undefined;
+    let updatedHabits: Habit[] = [...profile.habits];
+    let updatedProgressionHabits: ProgressionHabit[] = [...profile.progressionHabits];
+    let habitIndex = -1;
 
-    const habitIndex = currentUser.habits.findIndex(h => h.id === habitId);
-    if (habitIndex === -1) return;
+    if (type === 'main') {
+        habitIndex = profile.habits.findIndex(h => h.id === id);
+        if (habitIndex === -1) return null;
+        habitToConfirm = profile.habits[habitIndex];
+        if (habitToConfirm.completedToday) return null; // Already completed
+        updatedHabits[habitIndex] = {
+            ...habitToConfirm,
+            completedToday: true,
+            rewardClaimedToday: true, // Assuming progression also counts for this flag on main habit
+            totalCompletions: (habitToConfirm.totalCompletions || 0) + 1,
+        };
+    } else { // progression
+        habitIndex = profile.progressionHabits.findIndex(ph => ph.id === id);
+        if (habitIndex === -1) return null;
+        habitToConfirm = profile.progressionHabits[habitIndex];
+        if (habitToConfirm.completedToday) return null; // Already completed
+        updatedProgressionHabits[habitIndex] = {
+            ...habitToConfirm,
+            completedToday: true,
+            totalCompletions: (habitToConfirm.totalCompletions || 0) + 1,
+        };
+    }
 
-    const habitToConfirm = currentUser.habits[habitIndex];
-    if (habitToConfirm.completedToday) return;
 
-    const updatedHabits = [...currentUser.habits];
-    updatedHabits[habitIndex] = {
-      ...habitToConfirm, completedToday: true, rewardClaimedToday: true,
-      totalCompletions: (habitToConfirm.totalCompletions || 0) + 1,
-    };
+    let newDailyCompletions = profile.dailyCompletions + 1;
+    let newPokeBalls = profile.pokeBalls;
+    let newGreatBalls = profile.greatBalls;
+    let newUltraBalls = profile.ultraBalls;
+    let newExperiencePoints = profile.experiencePoints;
 
-    let newDailyCompletions = currentUser.dailyCompletions + 1;
-    let newPokeBalls = currentUser.pokeBalls;
-    let newGreatBalls = currentUser.greatBalls;
-    let newUltraBalls = currentUser.ultraBalls;
-    let newExperiencePoints = currentUser.experiencePoints;
-
-    const isBoosted = currentUser.boostedHabitId === habitId && calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level >= MIN_LEVEL_FOR_BOOSTED_HABIT;
+    const isBoosted = type === 'main' && profile.boostedHabitId === id && calculatePlayerLevelInfoInternal(profile.experiencePoints).level >= MIN_LEVEL_FOR_BOOSTED_HABIT;
 
     if (isBoosted) {
       newPokeBalls += BOOSTED_HABIT_POKEBALL_REWARD;
@@ -642,40 +740,71 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (newDailyCompletions % 10 === 0) newUltraBalls++;
     
     const todayLocalStr = getTodayDateString();
-    let newDailyStreak = currentUser.dailyStreak;
-    let newLastStreakUpdateDate = currentUser.lastStreakUpdateDate;
-    let newLastStreakDayClaimedForReward = currentUser.lastStreakDayClaimedForReward || 0;
+    
+    let newDailyStreak = profile.dailyStreak;
+    let newLastStreakUpdateDate = profile.lastStreakUpdateDate;
+    let newLastStreakDayClaimedForReward = profile.lastStreakDayClaimedForReward || 0;
 
     if (!newLastStreakUpdateDate || newLastStreakUpdateDate === "") {
-      newDailyStreak = 1;
-      newLastStreakUpdateDate = todayLocalStr;
-      newLastStreakDayClaimedForReward = 0; 
+      newDailyStreak = 1; newLastStreakUpdateDate = todayLocalStr; newLastStreakDayClaimedForReward = 0; 
     } else {
-      const lastStreakDateObj = parseLocalDateStr(newLastStreakUpdateDate);
       if (todayLocalStr === newLastStreakUpdateDate) {
-        if (newDailyStreak === 0) { 
-            newDailyStreak = 1;
-            newLastStreakDayClaimedForReward = 0; 
-        }
+        if (newDailyStreak === 0) { newDailyStreak = 1; newLastStreakDayClaimedForReward = 0; }
       } else {
+        const lastStreakDateObj = parseLocalDateStr(newLastStreakUpdateDate);
         const dayAfterLastStreakDateObj = new Date(lastStreakDateObj);
         dayAfterLastStreakDateObj.setDate(lastStreakDateObj.getDate() + 1);
-        const dayAfterLastStreakDateStr = formatDateToLocalStr(dayAfterLastStreakDateObj);
-
-        if (todayLocalStr === dayAfterLastStreakDateStr) {
-          newDailyStreak = (currentUser.dailyStreak || 0) + 1;
-          newLastStreakUpdateDate = todayLocalStr;
+        if (todayLocalStr === formatDateToLocalStr(dayAfterLastStreakDateObj)) {
+          newDailyStreak = (profile.dailyStreak || 0) + 1;
         } else { 
-          newDailyStreak = 1;
-          newLastStreakUpdateDate = todayLocalStr;
-          newLastStreakDayClaimedForReward = 0; 
+          newDailyStreak = 1; newLastStreakDayClaimedForReward = 0; 
         }
+        newLastStreakUpdateDate = todayLocalStr;
       }
     }
+
+    let newFiveHabitStreak = profile.fiveHabitStreak || 0;
+    let newLastFiveHabitStreakUpdateDate = profile.lastFiveHabitStreakUpdateDate || "";
+    let newLastFiveHabitStreakDayClaimedForReward = profile.lastFiveHabitStreakDayClaimedForReward || 0;
+
+    if (newDailyCompletions >= 5) {
+        if (newLastFiveHabitStreakUpdateDate !== todayLocalStr) {
+            const lastFiveDateObj = newLastFiveHabitStreakUpdateDate ? parseLocalDateStr(newLastFiveHabitStreakUpdateDate) : null;
+            if (lastFiveDateObj && newLastFiveHabitStreakUpdateDate !== "") {
+                const dayAfterLastFive = new Date(lastFiveDateObj); dayAfterLastFive.setDate(lastFiveDateObj.getDate() + 1);
+                if (todayLocalStr === formatDateToLocalStr(dayAfterLastFive)) {
+                    newFiveHabitStreak = (profile.fiveHabitStreak || 0) + 1;
+                } else { newFiveHabitStreak = 1; newLastFiveHabitStreakDayClaimedForReward = 0; }
+            } else { newFiveHabitStreak = 1; newLastFiveHabitStreakDayClaimedForReward = 0; }
+            newLastFiveHabitStreakUpdateDate = todayLocalStr;
+        } else if (newFiveHabitStreak === 0) { 
+            newFiveHabitStreak = 1; newLastFiveHabitStreakDayClaimedForReward = 0;
+        }
+    }
     
-    updateUserProfile({
-      ...currentUser, 
+    let newTenHabitStreak = profile.tenHabitStreak || 0;
+    let newLastTenHabitStreakUpdateDate = profile.lastTenHabitStreakUpdateDate || "";
+    let newLastTenHabitStreakDayClaimedForReward = profile.lastTenHabitStreakDayClaimedForReward || 0;
+
+    if (newDailyCompletions >= 10) {
+        if (newLastTenHabitStreakUpdateDate !== todayLocalStr) {
+            const lastTenDateObj = newLastTenHabitStreakUpdateDate ? parseLocalDateStr(newLastTenHabitStreakUpdateDate) : null;
+             if (lastTenDateObj && newLastTenHabitStreakUpdateDate !== "") {
+                const dayAfterLastTen = new Date(lastTenDateObj); dayAfterLastTen.setDate(lastTenDateObj.getDate() + 1);
+                if (todayLocalStr === formatDateToLocalStr(dayAfterLastTen)) {
+                    newTenHabitStreak = (profile.tenHabitStreak || 0) + 1;
+                } else { newTenHabitStreak = 1; newLastTenHabitStreakDayClaimedForReward = 0; }
+            } else { newTenHabitStreak = 1; newLastTenHabitStreakDayClaimedForReward = 0; }
+            newLastTenHabitStreakUpdateDate = todayLocalStr;
+        } else if (newTenHabitStreak === 0) {
+             newTenHabitStreak = 1; newLastTenHabitStreakDayClaimedForReward = 0;
+        }
+    }
+    
+    return {
+      ...profile, 
       habits: updatedHabits, 
+      progressionHabits: updatedProgressionHabits,
       dailyCompletions: newDailyCompletions,
       pokeBalls: newPokeBalls, 
       greatBalls: newGreatBalls, 
@@ -684,18 +813,81 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       dailyStreak: newDailyStreak,
       lastStreakUpdateDate: newLastStreakUpdateDate,
       lastStreakDayClaimedForReward: newLastStreakDayClaimedForReward,
-    });
+      fiveHabitStreak: newFiveHabitStreak,
+      lastFiveHabitStreakUpdateDate: newLastFiveHabitStreakUpdateDate,
+      lastFiveHabitStreakDayClaimedForReward: newLastFiveHabitStreakDayClaimedForReward,
+      tenHabitStreak: newTenHabitStreak,
+      lastTenHabitStreakUpdateDate: newLastTenHabitStreakUpdateDate,
+      lastTenHabitStreakDayClaimedForReward: newLastTenHabitStreakDayClaimedForReward,
+    };
   };
+
+  const confirmHabitCompletion = (habitId: string) => {
+    if (!currentUser) return;
+    const updatedProfile = confirmHabitCompletionInternal(currentUser, 'main', habitId);
+    if (updatedProfile) {
+        updateUserProfile(updatedProfile);
+    }
+  };
+
+  const confirmProgressionHabitCompletion = (progressionHabitId: string) => {
+    if (!currentUser) return;
+    const updatedProfile = confirmHabitCompletionInternal(currentUser, 'progression', progressionHabitId);
+    if (updatedProfile) {
+        updateUserProfile(updatedProfile);
+    }
+  };
+
 
   const deleteHabit = (habitId: string) => {
     if (!currentUser) return;
-    let updatedProfile = { ...currentUser, habits: currentUser.habits.filter(h => h.id !== habitId) };
+    const updatedProgressionHabits = currentUser.progressionHabits.filter(ph => ph.mainHabitId !== habitId);
+    let updatedProfile = { 
+        ...currentUser, 
+        habits: currentUser.habits.filter(h => h.id !== habitId),
+        progressionHabits: updatedProgressionHabits 
+    };
     if (currentUser.boostedHabitId === habitId) {
       updatedProfile.boostedHabitId = null;
     }
     updateUserProfile(updatedProfile);
   };
   
+  const addProgressionHabit = (mainHabitId: string, text: string) => {
+    if (!currentUser) return;
+    const currentLevel = calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level;
+    const maxSlots = calculateMaxProgressionSlotsInternal(currentLevel);
+    if (currentUser.progressionHabits.length >= maxSlots) {
+        setToastMessage(`Você atingiu o limite de ${maxSlots} hábitos de progressão para o seu nível.`, "error");
+        return;
+    }
+    const mainHabitExists = currentUser.habits.some(h => h.id === mainHabitId);
+    if (!mainHabitExists) {
+        setToastMessage("Hábito principal não encontrado.", "error");
+        return;
+    }
+
+    const newProgressionHabit: ProgressionHabit = {
+      id: generateInstanceId(),
+      mainHabitId,
+      text: text.trim(),
+      completedToday: false,
+      totalCompletions: 0,
+    };
+    updateUserProfile({
+      ...currentUser,
+      progressionHabits: [...currentUser.progressionHabits, newProgressionHabit],
+    });
+  };
+
+  const deleteProgressionHabit = (progressionHabitId: string) => {
+    if (!currentUser) return;
+    updateUserProfile({
+      ...currentUser,
+      progressionHabits: currentUser.progressionHabits.filter(ph => ph.id !== progressionHabitId),
+    });
+  };
+
   const toggleHabitBoost = (habitId: string) => {
     if (!currentUser) return;
     const playerLevel = calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level;
@@ -826,6 +1018,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       ...currentUser, 
       pokeBalls: currentUser.username === TEST_USER_USERNAME ? currentUser.pokeBalls : currentUser.pokeBalls - 1,
       experiencePoints: currentUser.experiencePoints + XP_FROM_POKEBALL,
+      taskCoins: (currentUser.taskCoins || 0) + TASK_COINS_FROM_POKEBALL,
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
@@ -840,6 +1033,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       ...currentUser, 
       greatBalls: currentUser.username === TEST_USER_USERNAME ? currentUser.greatBalls : currentUser.greatBalls - 1,
       experiencePoints: currentUser.experiencePoints + XP_FROM_GREATBALL,
+      taskCoins: (currentUser.taskCoins || 0) + TASK_COINS_FROM_GREATBALL,
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
@@ -854,6 +1048,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       ...currentUser, 
       ultraBalls: currentUser.username === TEST_USER_USERNAME ? currentUser.ultraBalls : currentUser.ultraBalls - 1,
       experiencePoints: currentUser.experiencePoints + XP_FROM_ULTRABALL,
+      taskCoins: (currentUser.taskCoins || 0) + TASK_COINS_FROM_ULTRABALL,
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
@@ -867,6 +1062,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const profileWithBallSpentAndXP: UserProfile = {
       ...currentUser, masterBalls: currentUser.masterBalls - 1,
       experiencePoints: currentUser.experiencePoints + XP_FROM_MASTERBALL,
+      taskCoins: (currentUser.taskCoins || 0) + TASK_COINS_FROM_MASTERBALL,
     };
     const finalProfile = handlePokemonCatchInternal(newPokemon, profileWithBallSpentAndXP);
     updateUserProfile(finalProfile);
@@ -941,19 +1137,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
       
-      // Password from cloud should not overwrite local one unless explicitly changing password
-      // For this load, we assume the user is already logged in or this is a fresh load where password will be handled by login.
-      // So, we keep the existing currentUser.password if currentUser exists.
       const cloudProfile = initializeProfileFields(data);
       if (currentUser && currentUser.password && !cloudProfile.password) {
         cloudProfile.password = currentUser.password;
       }
 
-
       localStorage.setItem('pokemonHabitUser', JSON.stringify(cloudProfile));
       const storedUsersData = localStorage.getItem('allPokemonHabitUsers');
       const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : {};
-      storedUsers[cloudProfile.username] = cloudProfile; // Save the potentially password-updated profile
+      storedUsers[cloudProfile.username] = cloudProfile; 
       localStorage.setItem('allPokemonHabitUsers', JSON.stringify(storedUsers));
 
       let userProfile = handleDayRollover(cloudProfile);
@@ -978,32 +1170,67 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
 
   const claimStreakRewards = () => {
-    if (!currentUser || currentUser.dailyStreak <= (currentUser.lastStreakDayClaimedForReward || 0)) {
-      setToastMessage("Nenhuma recompensa de sequência para resgatar.", "info");
-      return;
-    }
+    if (!currentUser) return;
 
     let pokeBallsAwarded = 0;
     let greatBallsAwarded = 0;
     let ultraBallsAwarded = 0;
+    let mainStreakRewardsClaimed = false;
+    let fiveHabitStreakRewardsClaimed = false;
+    let tenHabitStreakRewardsClaimed = false;
 
-    const startDay = (currentUser.lastStreakDayClaimedForReward || 0) + 1;
-    for (let dayNum = startDay; dayNum <= currentUser.dailyStreak; dayNum++) {
-      pokeBallsAwarded++;
-      if (dayNum % 3 === 0) {
-        greatBallsAwarded++;
-      }
-      if (dayNum % 5 === 0) {
-        ultraBallsAwarded++;
-      }
+    if (currentUser.dailyStreak > (currentUser.lastStreakDayClaimedForReward || 0)) {
+        mainStreakRewardsClaimed = true;
+        for (let dayNum = (currentUser.lastStreakDayClaimedForReward || 0) + 1; dayNum <= currentUser.dailyStreak; dayNum++) {
+            pokeBallsAwarded++; 
+            if (dayNum % 3 === 0) greatBallsAwarded++; 
+            if (dayNum % 5 === 0) ultraBallsAwarded++; 
+        }
     }
-    
+
+    if (currentUser.fiveHabitStreak > (currentUser.lastFiveHabitStreakDayClaimedForReward || 0)) {
+        fiveHabitStreakRewardsClaimed = true;
+        for (let dayNum = (currentUser.lastFiveHabitStreakDayClaimedForReward || 0) + 1; dayNum <= currentUser.fiveHabitStreak; dayNum++) {
+            if (dayNum % 5 === 0) { 
+                pokeBallsAwarded++;
+                greatBallsAwarded++;
+                ultraBallsAwarded++;
+            } else if (dayNum % 3 === 0) { 
+                ultraBallsAwarded++;
+            } else { 
+                greatBallsAwarded++;
+            }
+        }
+    }
+
+    if (currentUser.tenHabitStreak > (currentUser.lastTenHabitStreakDayClaimedForReward || 0)) {
+        tenHabitStreakRewardsClaimed = true;
+        for (let dayNum = (currentUser.lastTenHabitStreakDayClaimedForReward || 0) + 1; dayNum <= currentUser.tenHabitStreak; dayNum++) {
+            if (dayNum % 5 === 0) { 
+                pokeBallsAwarded++;
+                greatBallsAwarded++;
+                ultraBallsAwarded += 2;
+            } else if (dayNum % 3 === 0) { 
+                ultraBallsAwarded += 2;
+            } else { 
+                ultraBallsAwarded++;
+            }
+        }
+    }
+
+    if (!mainStreakRewardsClaimed && !fiveHabitStreakRewardsClaimed && !tenHabitStreakRewardsClaimed) {
+        setToastMessage("Nenhuma recompensa de sequência para resgatar.", "info");
+        return;
+    }
+
     const updatedProfile = {
-      ...currentUser,
-      pokeBalls: currentUser.pokeBalls + pokeBallsAwarded,
-      greatBalls: currentUser.greatBalls + greatBallsAwarded,
-      ultraBalls: currentUser.ultraBalls + ultraBallsAwarded,
-      lastStreakDayClaimedForReward: currentUser.dailyStreak,
+        ...currentUser,
+        pokeBalls: currentUser.pokeBalls + pokeBallsAwarded,
+        greatBalls: currentUser.greatBalls + greatBallsAwarded,
+        ultraBalls: currentUser.ultraBalls + ultraBallsAwarded,
+        lastStreakDayClaimedForReward: mainStreakRewardsClaimed ? currentUser.dailyStreak : currentUser.lastStreakDayClaimedForReward,
+        lastFiveHabitStreakDayClaimedForReward: fiveHabitStreakRewardsClaimed ? currentUser.fiveHabitStreak : currentUser.lastFiveHabitStreakDayClaimedForReward,
+        lastTenHabitStreakDayClaimedForReward: tenHabitStreakRewardsClaimed ? currentUser.tenHabitStreak : currentUser.lastTenHabitStreakDayClaimedForReward,
     };
     updateUserProfile(updatedProfile);
 
@@ -1219,7 +1446,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       toggleShareHabitsPublicly, selectAvatar, claimStreakRewards, claimLevelRewards, 
       toastMessage: toastMessageState, clearToastMessage, setToastMessage,
       calculatePlayerLevelInfo: calculatePlayerLevelInfoInternal,
-      toggleHabitBoost, // Added
+      toggleHabitBoost, 
+      addProgressionHabit, confirmProgressionHabitCompletion, deleteProgressionHabit,
+      calculateMaxProgressionSlots: calculateMaxProgressionSlotsInternal,
       sharedHabitsData, fetchSharedHabitsData, sendSharedHabitInvitation,
       respondToSharedHabitInvitation, completeSharedHabit, cancelSentSharedHabitRequest,
       deleteSharedHabit,

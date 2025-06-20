@@ -4,6 +4,15 @@ import { NavLink } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { MIN_LEVEL_FOR_SHARED_HABITS, AVATAR_OPTIONS, DEFAULT_AVATAR_ID } from '../constants';
 
+// Coin Icon SVG
+const CoinIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+        <path d="M10 4.5c.23 0 .45.03.67.08A5.98 5.98 0 006.08 8.33c-.05.22-.08.44-.08.67 0 3.31 2.69 6 6 6 .23 0 .45-.03.67-.08A5.98 5.98 0 0013.92 11.67c.05-.22.08-.44.08-.67 0-3.31-2.69-6-6-6zM9 9a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" />
+    </svg>
+);
+
+
 const Navbar: React.FC = () => {
   const { currentUser, logout, saveProfileToCloud, calculatePlayerLevelInfo } = useUser();
   const [isSavingNavbar, setIsSavingNavbar] = useState(false);
@@ -42,7 +51,6 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between items-center py-3">
           {/* Logo and App Title */}
           <div className="flex items-center space-x-2">
-            {/* Avatar removed from here (desktop view beside title) */}
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Pokeball Icon" className="h-8 w-8"/>
             <NavLink to="/" onClick={closeMobileMenu} className="text-xl font-bold text-yellow-400">PokéHabits</NavLink>
           </div>
@@ -67,16 +75,22 @@ const Navbar: React.FC = () => {
             </button>
           </div>
 
-          {/* Desktop Menu (Profile & Logout) */}
+          {/* Desktop Menu (Profile, Coins & Logout) */}
           <div className="hidden md:flex items-center space-x-4">
             {currentUser && (
-              <NavLink
-                to="/profile"
-                className={({ isActive }) => `${isActive ? 'text-yellow-400 font-semibold' : 'text-slate-300 hover:text-yellow-400'} transition-colors px-2 py-1 rounded-md flex items-center`}
-                title="Ver Perfil"
-              >
-                {currentUser.username}
-              </NavLink>
+              <>
+                <div className="flex items-center text-slate-300" title="Task Coins">
+                  <CoinIcon className="w-5 h-5 text-yellow-400 mr-1" />
+                  <span>{currentUser.taskCoins || 0}</span>
+                </div>
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) => `${isActive ? 'text-yellow-400 font-semibold' : 'text-slate-300 hover:text-yellow-400'} transition-colors px-2 py-1 rounded-md flex items-center`}
+                  title="Ver Perfil"
+                >
+                  {currentUser.username}
+                </NavLink>
+              </>
             )}
             <button
               onClick={logout}
@@ -123,9 +137,18 @@ const Navbar: React.FC = () => {
               <hr className="border-slate-700 my-2"/>
               
               {currentUser && (
-                <NavLink to="/profile" className={({ isActive }) => `${isActive ? mobileActiveStyle : mobileInactiveStyle} flex items-center`} onClick={closeMobileMenu}>
-                  Perfil ({currentUser.username})
-                </NavLink>
+                <>
+                  <div className="flex items-center justify-between px-3 py-2 text-slate-300">
+                    <span>Task Coins:</span>
+                    <div className="flex items-center">
+                      <CoinIcon className="w-4 h-4 text-yellow-400 mr-1" />
+                      <span>{currentUser.taskCoins || 0}</span>
+                    </div>
+                  </div>
+                  <NavLink to="/profile" className={({ isActive }) => `${isActive ? mobileActiveStyle : mobileInactiveStyle} flex items-center`} onClick={closeMobileMenu}>
+                    Perfil ({currentUser.username})
+                  </NavLink>
+                </>
               )}
               <button 
                 onClick={() => { handleNavbarSave(); closeMobileMenu(); }} 

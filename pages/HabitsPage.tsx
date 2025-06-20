@@ -7,7 +7,7 @@ import HabitItem from '../components/HabitItem';
 import { CaughtPokemon, BallType } from '../types';
 import Modal from '../components/Modal';
 import PokemonCard from '../components/PokemonCard';
-import { getTranslatedBallName, MIN_LEVEL_FOR_BOOSTED_HABIT } from '../constants';
+import { getTranslatedBallName, MIN_LEVEL_FOR_BOOSTED_HABIT, MIN_LEVEL_FOR_PROGRESSION_L1 } from '../constants';
 
 const BallIcon: React.FC<{ type: BallType; onClick?: () => void; isButton?: boolean }> = ({ type, onClick, isButton = true }) => {
   let spriteUrl = "";
@@ -61,8 +61,8 @@ const HabitsPage: React.FC = () => {
     confirmHabitCompletion, 
     deleteHabit,
     toggleShareHabitsPublicly,
-    toggleHabitBoost, // Added for habit boost
-    calculatePlayerLevelInfo // To check player level
+    toggleHabitBoost, 
+    calculatePlayerLevelInfo 
   } = useUser();
   const [revealedPokemon, setRevealedPokemon] = useState<CaughtPokemon | null>(null);
   const [isCatchModalOpen, setIsCatchModalOpen] = useState(false);
@@ -76,6 +76,7 @@ const HabitsPage: React.FC = () => {
 
   const playerLevel = currentUser ? calculatePlayerLevelInfo(currentUser.experiencePoints).level : 0;
   const canBoostHabits = playerLevel >= MIN_LEVEL_FOR_BOOSTED_HABIT;
+  const canAccessProgression = playerLevel >= MIN_LEVEL_FOR_PROGRESSION_L1;
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -175,19 +176,32 @@ const HabitsPage: React.FC = () => {
                 ✨ Use o botão "Foco" para escolher um hábito e ganhar recompensas em dobro por ele! (Desbloqueado no Nível {MIN_LEVEL_FOR_BOOSTED_HABIT})
             </p>
         )}
-        <div className="flex items-center mt-1">
+        {canAccessProgression && (
+          <p className="text-slate-400 text-sm mt-1">
+            🚀 Evolua seus hábitos! Acesse a seção "Progressão" para definir metas avançadas para seus hábitos atuais. (Desbloqueado no Nível {MIN_LEVEL_FOR_PROGRESSION_L1})
+          </p>
+        )}
+        <div className="flex items-center mt-3 flex-wrap gap-2">
             <p className="text-slate-400 text-md">
             Conclusões de Hoje: <span className="font-semibold text-yellow-300">{dailyCompletions}</span>.
             </p>
             <Link
                 to="/stats"
-                className="ml-4 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-1 px-3 rounded-md transition-colors shadow"
+                className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-1 px-3 rounded-md transition-colors shadow"
                 title="Ver Estatísticas de Hábitos"
             >
                 Ver Estatísticas
             </Link>
+            {canAccessProgression && (
+              <Link
+                to="/habit-progression"
+                className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold py-1 px-3 rounded-md transition-colors shadow"
+                title="Gerenciar Progressão de Hábitos"
+              >
+                Progressão de Hábitos
+              </Link>
+            )}
         </div>
-        <p className="text-slate-400 text-sm mt-1">Marcações e contagem de conclusões são reiniciadas diariamente à meia-noite (horário local).</p>
         <p className="text-slate-400 text-sm mt-1 flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

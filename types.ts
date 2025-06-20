@@ -7,6 +7,14 @@ export interface Habit {
   totalCompletions: number; // Added to track total times this habit was confirmed
 }
 
+export interface ProgressionHabit {
+  id: string; // Unique ID for the progression habit
+  mainHabitId: string; // ID of the main habit it's linked to
+  text: string;
+  completedToday: boolean;
+  totalCompletions: number;
+}
+
 export interface PokemonBase {
   id: number;
   name: string;
@@ -53,17 +61,29 @@ export interface UserProfile {
   username: string;
   password?: string; // Added for password protection
   habits: Habit[];
+  progressionHabits: ProgressionHabit[]; // Added for progression habits
   caughtPokemon: CaughtPokemon[];
   pokeBalls: number;
   greatBalls: number;
   ultraBalls: number;
   masterBalls: number; // Added Master Balls
+  taskCoins: number; // Added for task coins
   dailyCompletions: number;
   lastResetDate: string; // YYYY-MM-DD (local)
   shinyCaughtPokemonIds: number[]; // Added to track unique shiny species caught
-  dailyStreak: number; // Added for habit streak
-  lastStreakUpdateDate: string; // Added for habit streak (YYYY-MM-DD local)
-  lastStreakDayClaimedForReward: number; // Tracks the highest streak day number for which rewards were claimed
+  
+  dailyStreak: number; 
+  lastStreakUpdateDate: string; 
+  lastStreakDayClaimedForReward: number; 
+
+  fiveHabitStreak: number;
+  lastFiveHabitStreakUpdateDate: string;
+  lastFiveHabitStreakDayClaimedForReward: number;
+
+  tenHabitStreak: number;
+  lastTenHabitStreakUpdateDate: string;
+  lastTenHabitStreakDayClaimedForReward: number;
+  
   completionHistory: { date: string; count: number }[]; // Added for daily completion log
   experiencePoints: number; // Added for player XP
   shareHabitsPublicly?: boolean; // Added for sharing habits preference
@@ -75,9 +95,6 @@ export interface UserProfile {
   // Fields for Shared Habits
   sharedHabitStreaks: Record<string, number>; // e.g., { "partnerUsername": 5 }
   lastSharedHabitCompletionResetDate: string; // YYYY-MM-DD, similar to lastResetDate but for shared habit completion flags if managed globally (though individual SharedHabit objects might also track their own reset)
-  // We'll primarily fetch shared habit details from a dedicated API/collection,
-  // so we might not need to store full invitation objects directly on the user profile in the client state.
-  // The context will manage lists of active, pending_invitee_approval, pending_creator_approval habits.
 }
 
 export enum SortOption {

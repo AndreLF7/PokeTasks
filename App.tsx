@@ -15,7 +15,8 @@ import ProfilePage from './pages/ProfilePage';
 import RankingPage from './pages/RankingPage';
 import TrainerPublicProfilePage from './pages/TrainerPublicProfilePage';
 import TrainerPublicHabitsPage from './pages/TrainerPublicHabitsPage';
-import SharedHabitsPage from './pages/SharedHabitsPage'; // Import SharedHabitsPage
+import SharedHabitsPage from './pages/SharedHabitsPage'; 
+import HabitProgressionPage from './pages/HabitProgressionPage'; // Ensured relative path
 import { useUser } from './contexts/UserContext';
 
 const App: React.FC = () => {
@@ -53,7 +54,8 @@ const App: React.FC = () => {
             <Route path="/pokedex" element={currentUser ? <PokedexPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex/:ballType" element={currentUser ? <BallFilteredPokedexPage /> : <Navigate to="/login" />} />
             <Route path="/gym-leaders" element={currentUser ? <GymLeadersPage /> : <Navigate to="/login" />} />
-            <Route path="/shared-habits" element={currentUser ? <SharedHabitsPage /> : <Navigate to="/login" />} /> {/* New Route */}
+            <Route path="/shared-habits" element={currentUser ? <SharedHabitsPage /> : <Navigate to="/login" />} />
+            <Route path="/habit-progression" element={currentUser ? <HabitProgressionPage /> : <Navigate to="/login" />} /> {/* New Route */}
             <Route path="/ball-odds" element={currentUser ? <BallOddsPage /> : <Navigate to="/login" />} />
             <Route path="/stats" element={currentUser ? <StatsPage /> : <Navigate to="/login" />} />
             <Route path="/profile" element={currentUser ? <ProfilePage /> : <Navigate to="/login" />} />
@@ -71,7 +73,7 @@ const App: React.FC = () => {
       </div>
       {toastMessage && (
         <Toast
-          key={toastMessage.id} // Add key to ensure re-render for new messages
+          key={toastMessage.id} 
           message={toastMessage.text}
           type={toastMessage.type}
           imageUrl={toastMessage.leaderImageUrl}

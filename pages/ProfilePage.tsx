@@ -8,7 +8,8 @@ import {
     DEFAULT_AVATAR_ID,
     GYM_LEADERS,
     MIN_LEVEL_FOR_BOOSTED_HABIT,
-    MIN_LEVEL_FOR_SHARED_HABITS
+    MIN_LEVEL_FOR_SHARED_HABITS,
+    MIN_LEVEL_FOR_PROGRESSION_L1 // Added for progression info
 } from '../constants';
 import type { AvatarOption, GymLeader } from '../types';
 
@@ -37,12 +38,14 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  const { username, caughtPokemon, pokeBalls, greatBalls, ultraBalls, masterBalls, habits, experiencePoints, dailyStreak, dailyCompletions, lastLevelRewardClaimed, avatarId } = currentUser;
+  const { username, caughtPokemon, pokeBalls, greatBalls, ultraBalls, masterBalls, habits, experiencePoints, dailyStreak, dailyCompletions, lastLevelRewardClaimed, avatarId, taskCoins } = currentUser;
 
   const totalPokemonCaught = caughtPokemon.length;
   const uniquePokemonSpeciesCaught = new Set(caughtPokemon.map(p => p.id)).size;
   const totalHabits = habits.length;
-  const totalLifetimeCompletions = habits.reduce((sum, h) => sum + (h.totalCompletions || 0), 0);
+  const totalLifetimeCompletions = habits.reduce((sum, h) => sum + (h.totalCompletions || 0), 0) + 
+                                 currentUser.progressionHabits.reduce((sum, ph) => sum + (ph.totalCompletions || 0), 0);
+
 
   const levelInfo = calculatePlayerLevelInfo(experiencePoints);
   const canClaimLevelRewards = levelInfo.level > (lastLevelRewardClaimed || 1);
@@ -261,9 +264,10 @@ const ProfilePage: React.FC = () => {
         <section aria-labelledby="level-rewards-info-heading" className="bg-slate-800 p-6 rounded-xl shadow-2xl">
             <h2 id="level-rewards-info-heading" className="text-2xl sm:text-3xl font-semibold text-yellow-300 mb-4">Recompensas por Nível</h2>
             <ul className="space-y-2 text-slate-300 text-sm sm:text-base">
-                <li><strong className="text-slate-100">Nível {MIN_LEVEL_FOR_BOOSTED_HABIT}:</strong> Desbloqueia <strong className="text-yellow-200">Hábito em Foco</strong>. Escolha um hábito para ganhar 2 Pokébolas e XP em dobro ao completá-lo.</li>
-                <li><strong className="text-slate-100">Nível {MIN_LEVEL_FOR_SHARED_HABITS}:</strong> Desbloqueia <strong className="text-yellow-200">Encrenca em Dobro</strong>. Compartilhe hábitos com outros treinadores e ganhem recompensas juntos.</li>
-                <li className="italic text-slate-400 mt-2">Outras recompensas como Pokébolas e itens são concedidas ao alcançar novos níveis. Resgate-as acima!</li>
+                <li><strong className="text-slate-100">Nível {MIN_LEVEL_FOR_BOOSTED_HABIT}:</strong> Desbloqueia <strong className="text-yellow-200">Hábito em Foco</strong>.</li>
+                <li><strong className="text-slate-100">Nível {MIN_LEVEL_FOR_SHARED_HABITS}:</strong> Desbloqueia <strong className="text-yellow-200">Encrenca em Dobro</strong>.</li>
+                <li><strong className="text-slate-100">Nível {MIN_LEVEL_FOR_PROGRESSION_L1}:</strong> Desbloqueia <strong className="text-yellow-200">Progressão de Hábitos</strong> (5 espaços).</li>
+                <li className="italic text-slate-400 mt-2">Outras recompensas como Pokébolas e itens são concedidas ao alcançar novos níveis.</li>
             </ul>
         </section>
       </div>
@@ -280,12 +284,13 @@ const ProfilePage: React.FC = () => {
         </div>
 
         <div className="bg-slate-800 p-6 rounded-xl shadow-xl hover:shadow-2xl transition-shadow">
-          <h3 className="text-xl font-semibold text-yellow-400 mb-3">Inventário de Bolas</h3>
+          <h3 className="text-xl font-semibold text-yellow-400 mb-3">Inventário</h3>
           <ul className="space-y-2 text-slate-300">
             <li><strong className="text-slate-100">Poké Bolas:</strong> {pokeBalls}</li>
             <li><strong className="text-slate-100">Great Balls:</strong> {greatBalls}</li>
             <li><strong className="text-slate-100">Ultra Balls:</strong> {ultraBalls}</li>
             <li><strong className="text-slate-100">Master Balls:</strong> {masterBalls}</li>
+            <li><strong className="text-slate-100">Task Coins:</strong> {taskCoins || 0} 🪙</li>
           </ul>
         </div>
 
