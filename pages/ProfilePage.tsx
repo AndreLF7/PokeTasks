@@ -160,6 +160,8 @@ const ProfilePage: React.FC = () => {
                   alt="" 
                   className={`w-24 h-24 object-contain rounded-md mx-auto ${!unlocked ? 'filter grayscale opacity-60' : ''}`}
                   loading="lazy"
+                  width="96"
+                  height="96"
                 />
                 <p className={`text-center text-xs mt-1 truncate ${isSelected && unlocked ? 'text-yellow-300 font-semibold' : 'text-slate-300'}`}>
                   {avatarOpt.name}
