@@ -167,7 +167,7 @@ export default async function handler(req, res) {
       profile.lastLevelRewardClaimed = profile.lastLevelRewardClaimed ?? 1;
       profile.maxHabitSlots = 10; 
       profile.avatarId = profile.avatarId ?? 'red';
-      profile.boostedHabitId = profile.boostedHabitId === undefined ? null : profileData.boostedHabitId; 
+      profile.boostedHabitId = profile.boostedHabitId === undefined ? null : profile.boostedHabitId; 
       profile.sharedHabitStreaks = profile.sharedHabitStreaks ?? {};
       profile.lastSharedHabitCompletionResetDate = profile.lastSharedHabitCompletionResetDate ?? '';
 
