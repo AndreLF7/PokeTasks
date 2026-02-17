@@ -15,6 +15,17 @@ export interface ProgressionHabit {
   totalCompletions: number;
 }
 
+export type PeriodicHabitType = 'weekly' | 'monthly' | 'annual';
+
+export interface PeriodicHabit {
+  id: string;
+  text: string;
+  period: PeriodicHabitType;
+  isCompleted: boolean;
+  currentPeriodStartDate: string; // YYYY-MM-DD, when the current active period started
+  createdAt: string; // ISO string
+}
+
 export interface PokemonBase {
   id: number;
   name: string;
@@ -62,6 +73,7 @@ export interface UserProfile {
   password?: string; // Added for password protection
   habits: Habit[];
   progressionHabits: ProgressionHabit[]; // Added for progression habits
+  periodicHabits: PeriodicHabit[]; // Added for periodic habits
   caughtPokemon: CaughtPokemon[];
   pokeBalls: number;
   greatBalls: number;

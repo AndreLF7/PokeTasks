@@ -39,7 +39,11 @@ export const LEVEL_THRESHOLDS: number[] = [
   2800, // XP for Level 8
   3600, // XP for Level 9
   4500, // XP for Level 10
-  5500  // XP for Level 11 (Example, can be extended)
+  5500, // XP for Level 11
+  6600, // XP for Level 12
+  7800, // XP for Level 13
+  9100, // XP for Level 14
+  10500, // XP for Level 15 (Example, can be extended)
 ];
 export const MAX_PLAYER_LEVEL = LEVEL_THRESHOLDS.length;
 
@@ -58,6 +62,16 @@ export const MIN_LEVEL_FOR_PROGRESSION_L1 = 5;
 export const PROGRESSION_SLOTS_L1 = 5;
 export const MIN_LEVEL_FOR_PROGRESSION_L2 = 10;
 export const PROGRESSION_SLOTS_L2 = 10;
+
+// Periodic Habit constants
+export const MIN_LEVEL_FOR_PERIODIC_HABITS = 7;
+export const MAX_PERIODIC_HABITS_PER_TYPE = 2;
+export const XP_REWARD_WEEKLY_HABIT = 50;
+export const TASK_COINS_REWARD_WEEKLY_HABIT = 10;
+export const XP_REWARD_MONTHLY_HABIT = 150;
+export const TASK_COINS_REWARD_MONTHLY_HABIT = 25;
+export const XP_REWARD_ANNUAL_HABIT = 500;
+export const TASK_COINS_REWARD_ANNUAL_HABIT = 100;
 
 
 // Special Pikachu (1st gen) constants
@@ -171,28 +185,27 @@ export const GREATBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
   { id: 5, weight: 5 },    // Charmeleon
   { id: 8, weight: 5 },    // Wartortle
   { id: 2, weight: 5 },    // Ivysaur
-  { id: 141, weight: 2 },  // Kabutops
-  { id: 139, weight: 2 },  // Omastar
+  { id: 141, weight: 5 },  // Kabutops
+  { id: 139, weight: 5 },  // Omastar
   { id: 26, weight: 5 },   // Raichu
-  { id: 38, weight: 2 },   // Ninetales
-  { id: 59, weight: 2 },   // Arcanine
-  { id: 134, weight: 2 },  // Vaporeon
-  { id: 136, weight: 2 },  // Flareon
-  { id: 135, weight: 2 },  // Jolteon
+  { id: 38, weight: 5 },   // Ninetales
+  { id: 59, weight: 5 },   // Arcanine
+  { id: 134, weight: 5 },  // Vaporeon
+  { id: 136, weight: 5 },  // Flareon
+  { id: 135, weight: 5 },  // Jolteon
   { id: 148, weight: 1 },  // Dragonair
-  { id: 126, weight: 2 },  // Magmar
-  { id: 124, weight: 2 },  // Jynx
-  { id: 123, weight: 2 },  // Scyther
-  { id: 127, weight: 2 },  // Pinsir
-  { id: 114, weight: 2 },  // Tangela
-  { id: 115, weight: 2 },  // Kangaskhan
+  { id: 126, weight: 5 },  // Magmar
+  { id: 124, weight: 5 },  // Jynx
+  { id: 123, weight: 5 },  // Scyther
+  { id: 127, weight: 5 },  // Pinsir
+  { id: 114, weight: 5 },  // Tangela
+  { id: 115, weight: 5 },  // Kangaskhan
   { id: 11, weight: 25 },  // Metapod
   { id: 14, weight: 25 },  // Kakuna
   { id: 17, weight: 20 },  // Pidgeotto
   { id: 20, weight: 20 },  // Raticate
   { id: 22, weight: 20 },  // Fearow
   { id: 24, weight: 10 },  // Arbok
-  { id: 26, weight: 5 },   // Raichu (second entry)
   { id: 28, weight: 10 },  // Sandslash
   { id: 30, weight: 20 },  // Nidorina
   { id: 33, weight: 20 },  // Nidorino
@@ -240,8 +253,6 @@ export const GREATBALL_WEIGHTED_POOL: WeightedPokemonEntry[] = [
   { id: 128, weight: 10 }, // Tauros
   { id: 131, weight: 10 }, // Lapras
   { id: 137, weight: 10 }, // Porygon
-  { id: 139, weight: 10 }, // Omastar (second entry)
-  { id: 141, weight: 10 }, // Kabutops (second entry)
   { id: 142, weight: 5 },  // Aerodactyl
   { id: 143, weight: 5 },  // Snorlax
   { id: 125, weight: 10 }, // Electabuzz
