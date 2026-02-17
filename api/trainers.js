@@ -22,11 +22,6 @@ const CaughtPokemonSchema = new mongoose.Schema({
   isShiny: Boolean,
 }, { _id: false });
 
-const CompletionHistorySchema = new mongoose.Schema({
-  date: String,
-  count: Number,
-}, { _id: false });
-
 const UserProfileSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, index: true },
   habits: [HabitSchema],
@@ -40,7 +35,6 @@ const UserProfileSchema = new mongoose.Schema({
   shinyCaughtPokemonIds: [Number],
   dailyStreak: Number,
   lastStreakUpdateDate: String, 
-  completionHistory: [CompletionHistorySchema],
   experiencePoints: Number,
   avatarId: { type: String, default: 'red' }, // Added avatarId
 });

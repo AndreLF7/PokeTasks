@@ -39,11 +39,6 @@ const CaughtPokemonSchema = new mongoose.Schema({
   isShiny: Boolean,
 }, { _id: false });
 
-const CompletionHistorySchema = new mongoose.Schema({
-  date: String,
-  count: Number,
-}, { _id: false });
-
 const UserProfileSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, index: true },
   password: { type: String }, 
@@ -72,7 +67,6 @@ const UserProfileSchema = new mongoose.Schema({
   lastTenHabitStreakUpdateDate: { type: String, default: "" },
   lastTenHabitStreakDayClaimedForReward: { type: Number, default: 0 },
   
-  completionHistory: [CompletionHistorySchema],
   experiencePoints: { type: Number, default: 0 },
   shareHabitsPublicly: { type: Boolean, default: false },
   lastLevelRewardClaimed: { type: Number, default: 1 },

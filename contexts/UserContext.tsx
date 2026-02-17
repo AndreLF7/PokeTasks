@@ -128,7 +128,6 @@ const getTodayDateString = (): string => {
 };
 
 const generateInstanceId = (): string => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-const MAX_HISTORY_ENTRIES = 60;
 
 const parseLocalDateStr = (dateStr: string): Date => {
   if (!dateStr || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -288,15 +287,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       profile.lastTenHabitStreakUpdateDate = parseDateField(profile.lastTenHabitStreakUpdateDate, "");
       profile.lastTenHabitStreakDayClaimedForReward = parseNumericField(profile.lastTenHabitStreakDayClaimedForReward, 0);
       
-      profile.completionHistory = (Array.isArray(profile.completionHistory)
-        ? profile.completionHistory.filter((item: any) =>
-            typeof item === 'object' && item !== null &&
-            typeof item.date === 'string' && item.date.match(/^\d{4}-\d{2}-\d{2}$/) &&
-            typeof item.count === 'number' && !isNaN(item.count)
-          )
-        : []
-      ).sort((a: any, b: any) => parseLocalDateStr(b.date).getTime() - parseLocalDateStr(a.date).getTime());
-
 
       profile.caughtPokemon = (Array.isArray(profile.caughtPokemon) ? profile.caughtPokemon : [])
         .map((p: any) => {
@@ -428,7 +418,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("UserContext: CRITICAL - Unhandled error in initializeProfileFields. Returning default profile.", error, "Input data:", profileInput);
       const todayStr = getTodayDateString();
-      const defaultStartDateWeekly = formatDateToLocalStr(getStartOfCurrentPeriodInternal(new Date(), 'weekly'));
       return {
         username: 'Treinador', password: undefined, habits: [], progressionHabits: [], periodicHabits: [],
         caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0, taskCoins: 0,
@@ -436,7 +425,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, 
         fiveHabitStreak: 0, lastFiveHabitStreakUpdateDate: "", lastFiveHabitStreakDayClaimedForReward: 0,
         tenHabitStreak: 0, lastTenHabitStreakUpdateDate: "", lastTenHabitStreakDayClaimedForReward: 0,
-        completionHistory: [], experiencePoints: 0, shareHabitsPublicly: false,
+        experiencePoints: 0, shareHabitsPublicly: false,
         lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
         boostedHabitId: null,
         sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: todayStr,
@@ -446,21 +435,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   const handleDayRollover = useCallback((profile: UserProfile): UserProfile => {
     const todayUtc = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
-    const todayLocalStr = formatDateToLocalStr(todayUtc); // Use UTC date for string comparison too
+    const todayLocalStr = formatDateToLocalStr(todayUtc); 
     const yesterdayLocalStr = formatDateToLocalStr(new Date(new Date(todayUtc).setDate(todayUtc.getUTCDate() - 1)));
     
     let updatedProfile = { ...profile };
 
     if (profile.lastResetDate !== todayLocalStr) {
-        const previousDayCompletions = updatedProfile.dailyCompletions;
-        const previousDayCompletionDateStr = updatedProfile.lastResetDate;
-
-        let newHistory = [{ date: previousDayCompletionDateStr, count: previousDayCompletions }, ...updatedProfile.completionHistory];
-        if (newHistory.length > MAX_HISTORY_ENTRIES) {
-        newHistory = newHistory.slice(0, MAX_HISTORY_ENTRIES);
-        }
-        updatedProfile.completionHistory = newHistory;
-
         updatedProfile.habits = updatedProfile.habits.map(h => ({
           ...h, completedToday: false, rewardClaimedToday: false,
         }));
@@ -500,7 +480,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const startOfCurrentNaturalPeriod = getStartOfCurrentPeriodInternal(todayUtc, ph.period);
 
         if (startOfCurrentNaturalPeriod.getTime() > currentPeriodStartDateForHabit.getTime()) {
-            // It's a new period for this habit
             return {
                 ...ph,
                 isCompleted: false,
@@ -704,7 +683,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, 
             fiveHabitStreak: 0, lastFiveHabitStreakUpdateDate: "", lastFiveHabitStreakDayClaimedForReward: 0,
             tenHabitStreak: 0, lastTenHabitStreakUpdateDate: "", lastTenHabitStreakDayClaimedForReward: 0,
-            completionHistory: [], experiencePoints: 0, shareHabitsPublicly: false,
+            experiencePoints: 0, shareHabitsPublicly: false,
             lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
             boostedHabitId: null,
             sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: todayStr,
@@ -1523,10 +1502,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const data = await apiResponse.json();
       if (!apiResponse.ok) throw new Error(data.message || 'Falha ao responder ao convite');
       await fetchSharedHabitsData();
-      if (responseStatus === 'accept' && data.sharedHabit) {
-           const updatedProfile = { ...currentUser };
-           updateUserProfile(updatedProfile);
-      }
       return { success: true, message: data.message };
     } catch (error: any) {
       console.error("Error responding to shared habit invitation:", error);

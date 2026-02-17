@@ -96,7 +96,6 @@ export interface UserProfile {
   lastTenHabitStreakUpdateDate: string;
   lastTenHabitStreakDayClaimedForReward: number;
   
-  completionHistory: { date: string; count: number }[]; // Added for daily completion log
   experiencePoints: number; // Added for player XP
   shareHabitsPublicly?: boolean; // Added for sharing habits preference
   lastLevelRewardClaimed: number; // Tracks the last level for which rewards were claimed
