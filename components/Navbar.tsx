@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { MIN_LEVEL_FOR_SHARED_HABITS, AVATAR_OPTIONS, DEFAULT_AVATAR_ID } from '../constants';
+import { MIN_LEVEL_FOR_SHARED_HABITS, AVATAR_OPTIONS, DEFAULT_AVATAR_ID, MIN_LEVEL_FOR_PERIODIC_HABITS } from '../constants';
 
 // Coin Icon SVG
 const CoinIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -28,6 +28,7 @@ const Navbar: React.FC = () => {
 
   const playerLevel = currentUser ? calculatePlayerLevelInfo(currentUser.experiencePoints).level : 0;
   const canAccessSharedHabits = playerLevel >= MIN_LEVEL_FOR_SHARED_HABITS;
+  const canAccessPeriodicHabits = playerLevel >= MIN_LEVEL_FOR_PERIODIC_HABITS;
 
   const selectedAvatar = currentUser 
     ? AVATAR_OPTIONS.find(av => av.id === currentUser.avatarId) || AVATAR_OPTIONS.find(av => av.id === DEFAULT_AVATAR_ID) || AVATAR_OPTIONS[0]
@@ -63,6 +64,10 @@ const Navbar: React.FC = () => {
             )}
             <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Meus Pokémon</NavLink>
             <NavLink to="/pokedex" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Pokédex</NavLink>
+            <NavLink to="/calendar" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Calendário</NavLink>
+            {canAccessPeriodicHabits && (
+                <NavLink to="/periodic-habits" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Hábitos Periódicos</NavLink>
+            )}
             <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Líderes</NavLink>
             <NavLink to="/ranking" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Ranking</NavLink>
             <button
@@ -131,6 +136,10 @@ const Navbar: React.FC = () => {
               )}
               <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Meus Pokémon</NavLink>
               <NavLink to="/pokedex" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Pokédex</NavLink>
+              <NavLink to="/calendar" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Calendário</NavLink>
+              {canAccessPeriodicHabits && (
+                <NavLink to="/periodic-habits" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Hábitos Periódicos</NavLink>
+              )}
               <NavLink to="/gym-leaders" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Líderes</NavLink>
               <NavLink to="/ranking" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Ranking</NavLink>
               

@@ -20,6 +20,15 @@ const ProgressionHabitSchema = new mongoose.Schema({
   totalCompletions: Number,
 }, { _id: false });
 
+const PeriodicHabitSchema = new mongoose.Schema({
+  id: String,
+  text: String,
+  period: { type: String, enum: ['weekly', 'monthly', 'annual'], required: true },
+  isCompleted: Boolean,
+  currentPeriodStartDate: String, 
+  createdAt: String,
+}, { _id: false });
+
 const CaughtPokemonSchema = new mongoose.Schema({
   id: Number,
   name: String,
@@ -39,13 +48,14 @@ const UserProfileSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, index: true },
   password: { type: String }, 
   habits: [HabitSchema],
-  progressionHabits: [ProgressionHabitSchema], // Added progression habits
+  progressionHabits: [ProgressionHabitSchema], 
+  periodicHabits: { type: [PeriodicHabitSchema], default: [] }, // Added periodic habits
   caughtPokemon: [CaughtPokemonSchema],
   pokeBalls: Number,
   greatBalls: Number,
   ultraBalls: Number,
   masterBalls: Number,
-  taskCoins: { type: Number, default: 0 }, // Added task coins
+  taskCoins: { type: Number, default: 0 }, 
   dailyCompletions: Number,
   lastResetDate: String, 
   shinyCaughtPokemonIds: [Number],
@@ -66,7 +76,7 @@ const UserProfileSchema = new mongoose.Schema({
   experiencePoints: { type: Number, default: 0 },
   shareHabitsPublicly: { type: Boolean, default: false },
   lastLevelRewardClaimed: { type: Number, default: 1 },
-  maxHabitSlots: { type: Number, default: 10 }, // This is for main habits
+  maxHabitSlots: { type: Number, default: 10 }, 
   avatarId: { type: String, default: 'red' }, 
   boostedHabitId: { type: String, default: null }, 
   sharedHabitStreaks: { type: Map, of: Number, default: {} }, 
@@ -117,6 +127,7 @@ export default async function handler(req, res) {
       // Ensure defaults for new fields if not present
       profileData.taskCoins = profileData.taskCoins ?? 0;
       profileData.progressionHabits = profileData.progressionHabits ?? [];
+      profileData.periodicHabits = profileData.periodicHabits ?? []; // Ensure periodicHabits default
       profileData.lastStreakDayClaimedForReward = profileData.lastStreakDayClaimedForReward ?? 0;
       profileData.dailyStreak = profileData.dailyStreak ?? 0;
       profileData.lastStreakUpdateDate = profileData.lastStreakUpdateDate ?? "";
@@ -164,6 +175,7 @@ export default async function handler(req, res) {
       // Ensure new fields have defaults if loading an older document
       profile.taskCoins = profile.taskCoins ?? 0;
       profile.progressionHabits = profile.progressionHabits ?? [];
+      profile.periodicHabits = profile.periodicHabits ?? []; // Ensure periodicHabits default
       profile.lastLevelRewardClaimed = profile.lastLevelRewardClaimed ?? 1;
       profile.maxHabitSlots = 10; 
       profile.avatarId = profile.avatarId ?? 'red';

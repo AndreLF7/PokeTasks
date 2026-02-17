@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useEffect, useContext, useCallback, ReactNode } from 'react';
-import { UserProfile, Habit, CaughtPokemon, BallType, TradeOffer, GymLeader, SharedHabitDisplayInfo, SharedHabit, ProgressionHabit } from '../types'; // Added SharedHabit types
+import { UserProfile, Habit, CaughtPokemon, BallType, TradeOffer, GymLeader, SharedHabitDisplayInfo, SharedHabit, ProgressionHabit, PeriodicHabit, PeriodicHabitType } from '../types'; // Added SharedHabit types
 import {
   POKEMON_MASTER_LIST,
   POKEMON_API_SPRITE_URL,
@@ -18,10 +18,10 @@ import {
   XP_FROM_GREATBALL,
   XP_FROM_ULTRABALL,
   XP_FROM_MASTERBALL,
-  TASK_COINS_FROM_POKEBALL, // Added
-  TASK_COINS_FROM_GREATBALL, // Added
-  TASK_COINS_FROM_ULTRABALL, // Added
-  TASK_COINS_FROM_MASTERBALL, // Added
+  TASK_COINS_FROM_POKEBALL, 
+  TASK_COINS_FROM_GREATBALL, 
+  TASK_COINS_FROM_ULTRABALL, 
+  TASK_COINS_FROM_MASTERBALL, 
   PIKACHU_1ST_GEN_NAME,
   PIKACHU_1ST_GEN_SPRITE_URL,
   GYM_LEADERS,
@@ -33,10 +33,18 @@ import {
   BOOSTED_HABIT_XP_MULTIPLIER, 
   BOOSTED_HABIT_POKEBALL_REWARD, 
   NORMAL_HABIT_POKEBALL_REWARD,
-  MIN_LEVEL_FOR_PROGRESSION_L1, // Added
-  PROGRESSION_SLOTS_L1, // Added
-  MIN_LEVEL_FOR_PROGRESSION_L2, // Added
-  PROGRESSION_SLOTS_L2, // Added
+  MIN_LEVEL_FOR_PROGRESSION_L1, 
+  PROGRESSION_SLOTS_L1, 
+  MIN_LEVEL_FOR_PROGRESSION_L2, 
+  PROGRESSION_SLOTS_L2, 
+  MIN_LEVEL_FOR_PERIODIC_HABITS,
+  MAX_PERIODIC_HABITS_PER_TYPE,
+  XP_REWARD_WEEKLY_HABIT,
+  TASK_COINS_REWARD_WEEKLY_HABIT,
+  XP_REWARD_MONTHLY_HABIT,
+  TASK_COINS_REWARD_MONTHLY_HABIT,
+  XP_REWARD_ANNUAL_HABIT,
+  TASK_COINS_REWARD_ANNUAL_HABIT,
 } from '../constants';
 import type { WeightedPokemonEntry } from '../constants';
 
@@ -93,6 +101,12 @@ interface UserContextType {
   deleteProgressionHabit: (progressionHabitId: string) => void;
   calculateMaxProgressionSlots: (level: number) => number;
 
+  // Periodic Habits
+  addPeriodicHabit: (text: string, period: PeriodicHabitType) => void;
+  completePeriodicHabit: (habitId: string) => void;
+  deletePeriodicHabit: (habitId: string) => void;
+  getStartOfCurrentPeriod: (date: Date, period: PeriodicHabitType) => Date;
+
 
   sharedHabitsData: SharedHabitsState;
   fetchSharedHabitsData: () => Promise<void>;
@@ -118,18 +132,38 @@ const MAX_HISTORY_ENTRIES = 60;
 
 const parseLocalDateStr = (dateStr: string): Date => {
   if (!dateStr || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    // Return a date far in the past for invalid strings to ensure comparisons behave predictably
     return new Date(0); 
   }
-  return new Date(Number(dateStr.substring(0,4)), Number(dateStr.substring(5,7))-1, Number(dateStr.substring(8,10)));
+  // Create date in UTC to avoid timezone issues with local date strings
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
 };
 
 
 const formatDateToLocalStr = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const getStartOfCurrentPeriodInternal = (date: Date, period: PeriodicHabitType): Date => {
+    const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())); // Work with UTC copy
+    switch (period) {
+        case 'weekly':
+            const dayOfWeek = d.getUTCDay(); // 0 (Sun) - 6 (Sat)
+            const diff = d.getUTCDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust to make Monday the start
+            return new Date(d.setUTCDate(diff));
+        case 'monthly':
+            return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+        case 'annual':
+            return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        default:
+            return d; // Should not happen
+    }
+};
+
 
 const calculatePlayerLevelInfoInternal = (totalXP: number): LevelInfo => {
   let currentLevel = 1;
@@ -230,7 +264,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       profile.greatBalls = parseNumericField(profile.greatBalls, 0);
       profile.ultraBalls = parseNumericField(profile.ultraBalls, 0);
       profile.masterBalls = parseNumericField(profile.masterBalls, 0);
-      profile.taskCoins = parseNumericField(profile.taskCoins, 0); // Initialize taskCoins
+      profile.taskCoins = parseNumericField(profile.taskCoins, 0); 
 
       if (typeof profile.completionsTowardsGreatBall === 'number' && typeof profile.dailyCompletions !== 'number') {
         profile.dailyCompletions = profile.completionsTowardsGreatBall;
@@ -359,6 +393,23 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             };
         })
         .filter((ph: ProgressionHabit | null): ph is ProgressionHabit => ph !== null && !!ph.mainHabitId && !!ph.text);
+      
+      profile.periodicHabits = (Array.isArray(profile.periodicHabits) ? profile.periodicHabits : [])
+        .map((ph: any): PeriodicHabit | null => {
+            if (typeof ph !== 'object' || ph === null) return null;
+            const validPeriods: PeriodicHabitType[] = ['weekly', 'monthly', 'annual'];
+            const period: PeriodicHabitType = (ph.period && validPeriods.includes(ph.period)) ? ph.period : 'weekly';
+            
+            return {
+                id: (typeof ph.id === 'string' && ph.id) ? ph.id : generateInstanceId(),
+                text: (typeof ph.text === 'string' && ph.text.trim()) ? ph.text.trim() : 'Hábito Periódico Sem Nome',
+                period: period,
+                isCompleted: typeof ph.isCompleted === 'boolean' ? ph.isCompleted : false,
+                currentPeriodStartDate: parseDateField(ph.currentPeriodStartDate, formatDateToLocalStr(getStartOfCurrentPeriodInternal(new Date(), period))),
+                createdAt: (typeof ph.createdAt === 'string' && ph.createdAt) ? ph.createdAt : new Date().toISOString(),
+            };
+        })
+        .filter((ph: PeriodicHabit | null): ph is PeriodicHabit => ph !== null && !!ph.text);
 
 
       profile.lastResetDate = parseDateField(profile.lastResetDate, getTodayDateString());
@@ -377,8 +428,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("UserContext: CRITICAL - Unhandled error in initializeProfileFields. Returning default profile.", error, "Input data:", profileInput);
       const todayStr = getTodayDateString();
+      const defaultStartDateWeekly = formatDateToLocalStr(getStartOfCurrentPeriodInternal(new Date(), 'weekly'));
       return {
-        username: 'Treinador', password: undefined, habits: [], progressionHabits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0, taskCoins: 0,
+        username: 'Treinador', password: undefined, habits: [], progressionHabits: [], periodicHabits: [],
+        caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0, taskCoins: 0,
         dailyCompletions: 0, lastResetDate: todayStr, shinyCaughtPokemonIds: [],
         dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, 
         fiveHabitStreak: 0, lastFiveHabitStreakUpdateDate: "", lastFiveHabitStreakDayClaimedForReward: 0,
@@ -392,8 +445,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, []);
 
   const handleDayRollover = useCallback((profile: UserProfile): UserProfile => {
-    const todayLocalStr = getTodayDateString();
-    const yesterdayLocalStr = formatDateToLocalStr(new Date(new Date().setDate(new Date().getDate() - 1)));
+    const todayUtc = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+    const todayLocalStr = formatDateToLocalStr(todayUtc); // Use UTC date for string comparison too
+    const yesterdayLocalStr = formatDateToLocalStr(new Date(new Date(todayUtc).setDate(todayUtc.getUTCDate() - 1)));
+    
     let updatedProfile = { ...profile };
 
     if (profile.lastResetDate !== todayLocalStr) {
@@ -438,6 +493,23 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             updatedProfile.lastTenHabitStreakDayClaimedForReward = 0;
         }
     }
+
+    // Periodic Habit Resets
+    updatedProfile.periodicHabits = updatedProfile.periodicHabits.map(ph => {
+        const currentPeriodStartDateForHabit = parseLocalDateStr(ph.currentPeriodStartDate);
+        const startOfCurrentNaturalPeriod = getStartOfCurrentPeriodInternal(todayUtc, ph.period);
+
+        if (startOfCurrentNaturalPeriod.getTime() > currentPeriodStartDateForHabit.getTime()) {
+            // It's a new period for this habit
+            return {
+                ...ph,
+                isCompleted: false,
+                currentPeriodStartDate: formatDateToLocalStr(startOfCurrentNaturalPeriod)
+            };
+        }
+        return ph;
+    });
+
 
     if (updatedProfile.lastSharedHabitCompletionResetDate !== todayLocalStr) {
         updatedProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
@@ -546,13 +618,27 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (currentUser) {
-        const todayLocalStr = getTodayDateString();
+        const todayUtc = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+        const todayLocalStr = formatDateToLocalStr(todayUtc); 
         let profileChangedByInterval = false;
         let tempProfile = { ...currentUser };
 
         if (currentUser.lastResetDate !== todayLocalStr) {
           tempProfile = handleDayRollover(tempProfile); 
           profileChangedByInterval = true;
+        } else { // Even if daily habits didn't need reset, periodic ones might due to their own cycle
+            const originalPeriodicHabitsString = JSON.stringify(tempProfile.periodicHabits);
+            tempProfile.periodicHabits = tempProfile.periodicHabits.map(ph => {
+                const currentPeriodStartDateForHabit = parseLocalDateStr(ph.currentPeriodStartDate);
+                const startOfCurrentNaturalPeriod = getStartOfCurrentPeriodInternal(todayUtc, ph.period);
+                if (startOfCurrentNaturalPeriod.getTime() > currentPeriodStartDateForHabit.getTime()) {
+                    return { ...ph, isCompleted: false, currentPeriodStartDate: formatDateToLocalStr(startOfCurrentNaturalPeriod) };
+                }
+                return ph;
+            });
+            if (JSON.stringify(tempProfile.periodicHabits) !== originalPeriodicHabitsString) {
+                profileChangedByInterval = true;
+            }
         }
         
         if (currentUser.lastSharedHabitCompletionResetDate !== todayLocalStr) {
@@ -612,7 +698,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         } else { 
           const todayStr = getTodayDateString();
           userProfileData = {
-            username: trimmedUsername, password: passwordInput, habits: [], progressionHabits: [], caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0, taskCoins: 0,
+            username: trimmedUsername, password: passwordInput, habits: [], progressionHabits: [], periodicHabits: [],
+            caughtPokemon: [], pokeBalls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0, taskCoins: 0,
             dailyCompletions: 0, lastResetDate: todayStr, shinyCaughtPokemonIds: [],
             dailyStreak: 0, lastStreakUpdateDate: "", lastStreakDayClaimedForReward: 0, 
             fiveHabitStreak: 0, lastFiveHabitStreakUpdateDate: "", lastFiveHabitStreakDayClaimedForReward: 0,
@@ -700,18 +787,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         habitIndex = profile.habits.findIndex(h => h.id === id);
         if (habitIndex === -1) return null;
         habitToConfirm = profile.habits[habitIndex];
-        if (habitToConfirm.completedToday) return null; // Already completed
+        if (habitToConfirm.completedToday) return null; 
         updatedHabits[habitIndex] = {
             ...habitToConfirm,
             completedToday: true,
-            rewardClaimedToday: true, // Assuming progression also counts for this flag on main habit
+            rewardClaimedToday: true, 
             totalCompletions: (habitToConfirm.totalCompletions || 0) + 1,
         };
-    } else { // progression
+    } else { 
         habitIndex = profile.progressionHabits.findIndex(ph => ph.id === id);
         if (habitIndex === -1) return null;
         habitToConfirm = profile.progressionHabits[habitIndex];
-        if (habitToConfirm.completedToday) return null; // Already completed
+        if (habitToConfirm.completedToday) return null; 
         updatedProgressionHabits[habitIndex] = {
             ...habitToConfirm,
             completedToday: true,
@@ -753,7 +840,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       } else {
         const lastStreakDateObj = parseLocalDateStr(newLastStreakUpdateDate);
         const dayAfterLastStreakDateObj = new Date(lastStreakDateObj);
-        dayAfterLastStreakDateObj.setDate(lastStreakDateObj.getDate() + 1);
+        dayAfterLastStreakDateObj.setUTCDate(lastStreakDateObj.getUTCDate() + 1);
         if (todayLocalStr === formatDateToLocalStr(dayAfterLastStreakDateObj)) {
           newDailyStreak = (profile.dailyStreak || 0) + 1;
         } else { 
@@ -771,7 +858,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (newLastFiveHabitStreakUpdateDate !== todayLocalStr) {
             const lastFiveDateObj = newLastFiveHabitStreakUpdateDate ? parseLocalDateStr(newLastFiveHabitStreakUpdateDate) : null;
             if (lastFiveDateObj && newLastFiveHabitStreakUpdateDate !== "") {
-                const dayAfterLastFive = new Date(lastFiveDateObj); dayAfterLastFive.setDate(lastFiveDateObj.getDate() + 1);
+                const dayAfterLastFive = new Date(lastFiveDateObj); dayAfterLastFive.setUTCDate(lastFiveDateObj.getUTCDate() + 1);
                 if (todayLocalStr === formatDateToLocalStr(dayAfterLastFive)) {
                     newFiveHabitStreak = (profile.fiveHabitStreak || 0) + 1;
                 } else { newFiveHabitStreak = 1; newLastFiveHabitStreakDayClaimedForReward = 0; }
@@ -790,7 +877,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (newLastTenHabitStreakUpdateDate !== todayLocalStr) {
             const lastTenDateObj = newLastTenHabitStreakUpdateDate ? parseLocalDateStr(newLastTenHabitStreakUpdateDate) : null;
              if (lastTenDateObj && newLastTenHabitStreakUpdateDate !== "") {
-                const dayAfterLastTen = new Date(lastTenDateObj); dayAfterLastTen.setDate(lastTenDateObj.getDate() + 1);
+                const dayAfterLastTen = new Date(lastTenDateObj); dayAfterLastTen.setUTCDate(lastTenDateObj.getUTCDate() + 1);
                 if (todayLocalStr === formatDateToLocalStr(dayAfterLastTen)) {
                     newTenHabitStreak = (profile.tenHabitStreak || 0) + 1;
                 } else { newTenHabitStreak = 1; newLastTenHabitStreakDayClaimedForReward = 0; }
@@ -887,6 +974,83 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       progressionHabits: currentUser.progressionHabits.filter(ph => ph.id !== progressionHabitId),
     });
   };
+
+  const addPeriodicHabit = (text: string, period: PeriodicHabitType) => {
+    if (!currentUser) return;
+    const existingPeriodicForType = currentUser.periodicHabits.filter(ph => ph.period === period).length;
+    if (existingPeriodicForType >= MAX_PERIODIC_HABITS_PER_TYPE) {
+        setToastMessage(`Você pode ter no máximo ${MAX_PERIODIC_HABITS_PER_TYPE} hábitos ${period === 'weekly' ? 'semanais' : period === 'monthly' ? 'mensais' : 'anuais'}.`, "error");
+        return;
+    }
+    const todayUtc = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+    const newPeriodicHabit: PeriodicHabit = {
+        id: generateInstanceId(),
+        text: text.trim(),
+        period,
+        isCompleted: false,
+        currentPeriodStartDate: formatDateToLocalStr(getStartOfCurrentPeriodInternal(todayUtc, period)),
+        createdAt: new Date().toISOString(),
+    };
+    updateUserProfile({ ...currentUser, periodicHabits: [...currentUser.periodicHabits, newPeriodicHabit] });
+    setToastMessage(`Hábito ${period === 'weekly' ? 'semanal' : period === 'monthly' ? 'mensal' : 'anual'} adicionado!`, "success");
+  };
+
+  const completePeriodicHabit = (habitId: string) => {
+    if (!currentUser) return;
+    const habitIndex = currentUser.periodicHabits.findIndex(ph => ph.id === habitId);
+    if (habitIndex === -1) {
+        setToastMessage("Hábito periódico não encontrado.", "error");
+        return;
+    }
+    const habit = currentUser.periodicHabits[habitIndex];
+    if (habit.isCompleted) {
+        setToastMessage("Este hábito periódico já foi completado neste período.", "info");
+        return;
+    }
+
+    let xpReward = 0;
+    let tcReward = 0;
+    let periodText = "";
+
+    switch (habit.period) {
+        case 'weekly':
+            xpReward = XP_REWARD_WEEKLY_HABIT;
+            tcReward = TASK_COINS_REWARD_WEEKLY_HABIT;
+            periodText = "semanal";
+            break;
+        case 'monthly':
+            xpReward = XP_REWARD_MONTHLY_HABIT;
+            tcReward = TASK_COINS_REWARD_MONTHLY_HABIT;
+            periodText = "mensal";
+            break;
+        case 'annual':
+            xpReward = XP_REWARD_ANNUAL_HABIT;
+            tcReward = TASK_COINS_REWARD_ANNUAL_HABIT;
+            periodText = "anual";
+            break;
+    }
+
+    const updatedPeriodicHabits = [...currentUser.periodicHabits];
+    updatedPeriodicHabits[habitIndex] = { ...habit, isCompleted: true };
+
+    updateUserProfile({
+        ...currentUser,
+        periodicHabits: updatedPeriodicHabits,
+        experiencePoints: currentUser.experiencePoints + xpReward,
+        taskCoins: currentUser.taskCoins + tcReward,
+    });
+    setToastMessage(`Hábito ${periodText} "${habit.text}" completado! +${xpReward} XP, +${tcReward} Task Coins.`, "success");
+  };
+
+  const deletePeriodicHabit = (habitId: string) => {
+    if (!currentUser) return;
+    updateUserProfile({
+        ...currentUser,
+        periodicHabits: currentUser.periodicHabits.filter(ph => ph.id !== habitId),
+    });
+    setToastMessage("Hábito periódico removido.", "info");
+  };
+
 
   const toggleHabitBoost = (habitId: string) => {
     if (!currentUser) return;
@@ -1449,6 +1613,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       toggleHabitBoost, 
       addProgressionHabit, confirmProgressionHabitCompletion, deleteProgressionHabit,
       calculateMaxProgressionSlots: calculateMaxProgressionSlotsInternal,
+      addPeriodicHabit, completePeriodicHabit, deletePeriodicHabit,
+      getStartOfCurrentPeriod: getStartOfCurrentPeriodInternal,
       sharedHabitsData, fetchSharedHabitsData, sendSharedHabitInvitation,
       respondToSharedHabitInvitation, completeSharedHabit, cancelSentSharedHabitRequest,
       deleteSharedHabit,

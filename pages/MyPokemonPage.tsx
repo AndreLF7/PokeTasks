@@ -57,7 +57,8 @@ const MyPokemonPage: React.FC = () => {
     }
   }, [currentUser, sortOption, showOnlyDuplicates]);
 
-  const selectedPokemonDetails = useMemo(() => {
+  // Use explicit generic for useMemo to ensure correct type resolution in nested functions
+  const selectedPokemonDetails = useMemo<CaughtPokemon[]>(() => {
     if (!currentUser) return [];
     return currentUser.caughtPokemon.filter(p => selectedPokemonIds.includes(p.instanceId));
   }, [currentUser, selectedPokemonIds]);
@@ -158,13 +159,17 @@ const MyPokemonPage: React.FC = () => {
     return inputs.map(input => `${input.count} Pokémon (capturado com ${getTranslatedBallName(input.ballType)})`).join(', ');
   };
   
+  // FIX: Refactor formatSelectedTradePokemon to ensure matchingSelected.length is correctly typed as number
   const formatSelectedTradePokemon = (inputs: TradeOfferInput[]): string => {
     let details = "";
     inputs.forEach(input => {
         const matchingSelected = selectedPokemonDetails.filter(p => p.caughtWithBallType === input.ballType);
-        if (matchingSelected.length > 0) {
+        const count = matchingSelected.length;
+        if (count > 0) {
             if (details !== "") details += "; ";
-            details += `${getTranslatedBallName(input.ballType)}: ${matchingSelected.slice(0, 5).map(p => p.name).join(', ')}${matchingSelected.length > 5 ? '...' : ''} (${matchingSelected.length} no total)`;
+            const names = matchingSelected.slice(0, 5).map(p => p.name).join(', ');
+            const moreIndicator = count > 5 ? '...' : '';
+            details += `${getTranslatedBallName(input.ballType)}: ${names}${moreIndicator} (${count} no total)`;
         }
     });
     return details || "Nenhum correspondendo aos requisitos";
