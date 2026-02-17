@@ -17,7 +17,6 @@ import TrainerPublicProfilePage from './pages/TrainerPublicProfilePage';
 import TrainerPublicHabitsPage from './pages/TrainerPublicHabitsPage';
 import SharedHabitsPage from './pages/SharedHabitsPage'; 
 import HabitProgressionPage from './pages/HabitProgressionPage';
-import CalendarPage from './pages/CalendarPage'; // Import CalendarPage
 import PeriodicHabitsPage from './pages/PeriodicHabitsPage'; // Renamed from TasksPage
 import { useUser } from './contexts/UserContext';
 
@@ -58,7 +57,6 @@ const App: React.FC = () => {
             <Route path="/gym-leaders" element={currentUser ? <GymLeadersPage /> : <Navigate to="/login" />} />
             <Route path="/shared-habits" element={currentUser ? <SharedHabitsPage /> : <Navigate to="/login" />} />
             <Route path="/habit-progression" element={currentUser ? <HabitProgressionPage /> : <Navigate to="/login" />} />
-            <Route path="/calendar" element={currentUser ? <CalendarPage /> : <Navigate to="/login" />} />
             <Route path="/periodic-habits" element={currentUser ? <PeriodicHabitsPage /> : <Navigate to="/login" />} /> {/* Updated Route */}
             <Route path="/ball-odds" element={currentUser ? <BallOddsPage /> : <Navigate to="/login" />} />
             <Route path="/stats" element={currentUser ? <StatsPage /> : <Navigate to="/login" />} />

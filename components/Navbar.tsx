@@ -64,7 +64,6 @@ const Navbar: React.FC = () => {
             )}
             <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Meus Pokémon</NavLink>
             <NavLink to="/pokedex" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Pokédex</NavLink>
-            <NavLink to="/calendar" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Calendário</NavLink>
             {canAccessPeriodicHabits && (
                 <NavLink to="/periodic-habits" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Hábitos Periódicos</NavLink>
             )}
@@ -136,7 +135,6 @@ const Navbar: React.FC = () => {
               )}
               <NavLink to="/my-pokemon" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Meus Pokémon</NavLink>
               <NavLink to="/pokedex" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Pokédex</NavLink>
-              <NavLink to="/calendar" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Calendário</NavLink>
               {canAccessPeriodicHabits && (
                 <NavLink to="/periodic-habits" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Hábitos Periódicos</NavLink>
               )}

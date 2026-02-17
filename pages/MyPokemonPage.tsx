@@ -164,7 +164,8 @@ const MyPokemonPage: React.FC = () => {
     let details = "";
     inputs.forEach(input => {
         const matchingSelected = selectedPokemonDetails.filter(p => p.caughtWithBallType === input.ballType);
-        const count = matchingSelected.length;
+        // Explicitly type count as number to avoid "Operator '>' cannot be applied to types 'unknown' and 'number'"
+        const count: number = matchingSelected.length;
         if (count > 0) {
             if (details !== "") details += "; ";
             const names = matchingSelected.slice(0, 5).map(p => p.name).join(', ');
@@ -243,7 +244,8 @@ const MyPokemonPage: React.FC = () => {
             ) : (
               <ul className="list-disc list-inside text-slate-300 text-sm sm:text-base">
                 {Object.entries(selectedPokemonCountsByType)
-                  .filter(([_, count]) => count > 0)
+                  // FIX: Explicitly cast count as number to resolve potential TS "unknown" inference from Object.entries
+                  .filter(([_, count]) => (count as number) > 0)
                   .map(([ballType, count]) => (
                     <li key={ballType}>{getTranslatedBallName(ballType as BallType)}: {count as number}</li>
                 ))}
