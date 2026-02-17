@@ -22,6 +22,9 @@ import {
   TASK_COINS_FROM_GREATBALL, 
   TASK_COINS_FROM_ULTRABALL, 
   TASK_COINS_FROM_MASTERBALL, 
+  PRICE_POKEBALL,
+  PRICE_GREATBALL,
+  PRICE_ULTRABALL,
   PIKACHU_1ST_GEN_NAME,
   PIKACHU_1ST_GEN_SPRITE_URL,
   GYM_LEADERS,
@@ -94,6 +97,7 @@ interface UserContextType {
   setToastMessage: (text: string, type?: 'info' | 'success' | 'error', leaderImageUrl?: string) => void; 
   calculatePlayerLevelInfo: (totalXP: number) => LevelInfo;
   toggleHabitBoost: (habitId: string) => void; 
+  buyBall: (type: BallType) => void;
 
   // Progression Habits
   addProgressionHabit: (mainHabitId: string, text: string) => void;
@@ -444,9 +448,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         updatedProfile.habits = updatedProfile.habits.map(h => ({
           ...h, completedToday: false, rewardClaimedToday: false,
         }));
-        updatedProfile.progressionHabits = updatedProfile.progressionHabits.map(ph => ({
-          ...ph, completedToday: false,
-        }));
         updatedProfile.dailyCompletions = 0;
         updatedProfile.lastResetDate = todayLocalStr;
 
@@ -593,48 +594,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         }
     }
   }, [currentUser?.username, currentUser?.experiencePoints, fetchSharedHabitsData]);
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (currentUser) {
-        const todayUtc = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
-        const todayLocalStr = formatDateToLocalStr(todayUtc); 
-        let profileChangedByInterval = false;
-        let tempProfile = { ...currentUser };
-
-        if (currentUser.lastResetDate !== todayLocalStr) {
-          tempProfile = handleDayRollover(tempProfile); 
-          profileChangedByInterval = true;
-        } else { // Even if daily habits didn't need reset, periodic ones might due to their own cycle
-            const originalPeriodicHabitsString = JSON.stringify(tempProfile.periodicHabits);
-            tempProfile.periodicHabits = tempProfile.periodicHabits.map(ph => {
-                const currentPeriodStartDateForHabit = parseLocalDateStr(ph.currentPeriodStartDate);
-                const startOfCurrentNaturalPeriod = getStartOfCurrentPeriodInternal(todayUtc, ph.period);
-                if (startOfCurrentNaturalPeriod.getTime() > currentPeriodStartDateForHabit.getTime()) {
-                    return { ...ph, isCompleted: false, currentPeriodStartDate: formatDateToLocalStr(startOfCurrentNaturalPeriod) };
-                }
-                return ph;
-            });
-            if (JSON.stringify(tempProfile.periodicHabits) !== originalPeriodicHabitsString) {
-                profileChangedByInterval = true;
-            }
-        }
-        
-        if (currentUser.lastSharedHabitCompletionResetDate !== todayLocalStr) {
-            if (calculatePlayerLevelInfoInternal(currentUser.experiencePoints).level >= MIN_LEVEL_FOR_SHARED_HABITS) {
-                 fetchSharedHabitsData(); 
-            }
-            tempProfile.lastSharedHabitCompletionResetDate = todayLocalStr;
-            if (!profileChangedByInterval) profileChangedByInterval = true;
-        }
-
-        if (profileChangedByInterval) {
-            updateUserProfile(tempProfile);
-        }
-      }
-    }, 60000); 
-    return () => clearInterval(intervalId);
-  }, [currentUser, handleDayRollover, updateUserProfile, fetchSharedHabitsData]);
 
   const login = async (username: string, passwordInput?: string): Promise<{ success: boolean; message?: string }> => {
     setLoading(true);
@@ -791,19 +750,28 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     let newGreatBalls = profile.greatBalls;
     let newUltraBalls = profile.ultraBalls;
     let newExperiencePoints = profile.experiencePoints;
+    let newTaskCoins = profile.taskCoins || 0;
 
     const isBoosted = type === 'main' && profile.boostedHabitId === id && calculatePlayerLevelInfoInternal(profile.experiencePoints).level >= MIN_LEVEL_FOR_BOOSTED_HABIT;
 
     if (isBoosted) {
       newPokeBalls += BOOSTED_HABIT_POKEBALL_REWARD;
       newExperiencePoints += XP_PER_HABIT_COMPLETION * BOOSTED_HABIT_XP_MULTIPLIER;
+      newTaskCoins += TASK_COINS_FROM_POKEBALL * BOOSTED_HABIT_POKEBALL_REWARD;
     } else {
       newPokeBalls += NORMAL_HABIT_POKEBALL_REWARD;
       newExperiencePoints += XP_PER_HABIT_COMPLETION;
+      newTaskCoins += TASK_COINS_FROM_POKEBALL;
     }
 
-    if (newDailyCompletions % 5 === 0) newGreatBalls++;
-    if (newDailyCompletions % 10 === 0) newUltraBalls++;
+    if (newDailyCompletions % 5 === 0) {
+      newGreatBalls++;
+      newTaskCoins += TASK_COINS_FROM_GREATBALL;
+    }
+    if (newDailyCompletions % 10 === 0) {
+      newUltraBalls++;
+      newTaskCoins += TASK_COINS_FROM_ULTRABALL;
+    }
     
     const todayLocalStr = getTodayDateString();
     
@@ -876,6 +844,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       greatBalls: newGreatBalls, 
       ultraBalls: newUltraBalls,
       experiencePoints: newExperiencePoints,
+      taskCoins: newTaskCoins,
       dailyStreak: newDailyStreak,
       lastStreakUpdateDate: newLastStreakUpdateDate,
       lastStreakDayClaimedForReward: newLastStreakDayClaimedForReward,
@@ -1016,7 +985,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         ...currentUser,
         periodicHabits: updatedPeriodicHabits,
         experiencePoints: currentUser.experiencePoints + xpReward,
-        taskCoins: currentUser.taskCoins + tcReward,
+        taskCoins: (currentUser.taskCoins || 0) + tcReward,
     });
     setToastMessage(`Hábito ${periodText} "${habit.text}" completado! +${xpReward} XP, +${tcReward} Task Coins.`, "success");
   };
@@ -1043,6 +1012,36 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         ...currentUser,
         boostedHabitId: currentUser.boostedHabitId === habitId ? null : habitId,
     });
+  };
+
+  const buyBall = async (type: BallType) => {
+    if (!currentUser) return;
+    let price = 0;
+    switch (type) {
+      case 'poke': price = PRICE_POKEBALL; break;
+      case 'great': price = PRICE_GREATBALL; break;
+      case 'ultra': price = PRICE_ULTRABALL; break;
+      default: 
+        setToastMessage("Item indisponível na loja.", "error");
+        return;
+    }
+
+    if ((currentUser.taskCoins || 0) < price) {
+      setToastMessage("Task Coins insuficientes!", "error");
+      return;
+    }
+
+    const updatedProfile = {
+      ...currentUser,
+      taskCoins: (currentUser.taskCoins || 0) - price,
+      pokeBalls: type === 'poke' ? currentUser.pokeBalls + 1 : currentUser.pokeBalls,
+      greatBalls: type === 'great' ? currentUser.greatBalls + 1 : currentUser.greatBalls,
+      ultraBalls: type === 'ultra' ? currentUser.ultraBalls + 1 : currentUser.ultraBalls,
+    };
+
+    updateUserProfile(updatedProfile);
+    setToastMessage(`Você comprou uma ${getTranslatedBallName(type)}!`, "success");
+    await saveProfileToCloud();
   };
 
   const _isLeaderUnlocked = (leader: GymLeader, caughtPokemonIds: Set<number>): boolean => {
@@ -1585,7 +1584,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       toggleShareHabitsPublicly, selectAvatar, claimStreakRewards, claimLevelRewards, 
       toastMessage: toastMessageState, clearToastMessage, setToastMessage,
       calculatePlayerLevelInfo: calculatePlayerLevelInfoInternal,
-      toggleHabitBoost, 
+      toggleHabitBoost, buyBall,
       addProgressionHabit, confirmProgressionHabitCompletion, deleteProgressionHabit,
       calculateMaxProgressionSlots: calculateMaxProgressionSlotsInternal,
       addPeriodicHabit, completePeriodicHabit, deletePeriodicHabit,

@@ -17,7 +17,8 @@ import TrainerPublicProfilePage from './pages/TrainerPublicProfilePage';
 import TrainerPublicHabitsPage from './pages/TrainerPublicHabitsPage';
 import SharedHabitsPage from './pages/SharedHabitsPage'; 
 import HabitProgressionPage from './pages/HabitProgressionPage';
-import PeriodicHabitsPage from './pages/PeriodicHabitsPage'; // Renamed from TasksPage
+import PeriodicHabitsPage from './pages/PeriodicHabitsPage'; 
+import ShopPage from './pages/ShopPage';
 import { useUser } from './contexts/UserContext';
 
 const App: React.FC = () => {
@@ -51,13 +52,14 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage />} />
             <Route path="/" element={currentUser ? <HabitsPage /> : <Navigate to="/login" />} />
+            <Route path="/shop" element={currentUser ? <ShopPage /> : <Navigate to="/login" />} />
             <Route path="/my-pokemon" element={currentUser ? <MyPokemonPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex" element={currentUser ? <PokedexPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex/:ballType" element={currentUser ? <BallFilteredPokedexPage /> : <Navigate to="/login" />} />
             <Route path="/gym-leaders" element={currentUser ? <GymLeadersPage /> : <Navigate to="/login" />} />
             <Route path="/shared-habits" element={currentUser ? <SharedHabitsPage /> : <Navigate to="/login" />} />
             <Route path="/habit-progression" element={currentUser ? <HabitProgressionPage /> : <Navigate to="/login" />} />
-            <Route path="/periodic-habits" element={currentUser ? <PeriodicHabitsPage /> : <Navigate to="/login" />} /> {/* Updated Route */}
+            <Route path="/periodic-habits" element={currentUser ? <PeriodicHabitsPage /> : <Navigate to="/login" />} /> 
             <Route path="/ball-odds" element={currentUser ? <BallOddsPage /> : <Navigate to="/login" />} />
             <Route path="/stats" element={currentUser ? <StatsPage /> : <Navigate to="/login" />} />
             <Route path="/profile" element={currentUser ? <ProfilePage /> : <Navigate to="/login" />} />

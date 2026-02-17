@@ -24,6 +24,11 @@ export const TASK_COINS_FROM_GREATBALL = 5;
 export const TASK_COINS_FROM_ULTRABALL = 10;
 export const TASK_COINS_FROM_MASTERBALL = 25;
 
+// Shop Prices
+export const PRICE_POKEBALL = 10;
+export const PRICE_GREATBALL = 30;
+export const PRICE_ULTRABALL = 75;
+
 export const LEVEL_THRESHOLDS: number[] = [
   0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500, 6600, 7800, 9100, 10500,
 ];

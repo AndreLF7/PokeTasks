@@ -59,6 +59,7 @@ const Navbar: React.FC = () => {
           {/* Desktop Menu (Links & Save Button) */}
           <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
             <NavLink to="/" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Hábitos</NavLink>
+            <NavLink to="/shop" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Loja</NavLink>
             {canAccessSharedHabits && (
               <NavLink to="/shared-habits" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Encrenca em Dobro</NavLink>
             )}
@@ -130,6 +131,7 @@ const Navbar: React.FC = () => {
           <div className="md:hidden py-2" id="mobile-menu">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col">
               <NavLink to="/" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Hábitos</NavLink>
+              <NavLink to="/shop" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Loja</NavLink>
               {canAccessSharedHabits && (
                 <NavLink to="/shared-habits" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Encrenca em Dobro</NavLink>
               )}
