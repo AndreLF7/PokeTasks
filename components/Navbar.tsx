@@ -4,7 +4,6 @@ import { NavLink } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { MIN_LEVEL_FOR_SHARED_HABITS, AVATAR_OPTIONS, DEFAULT_AVATAR_ID, MIN_LEVEL_FOR_PERIODIC_HABITS } from '../constants';
 
-// Coin Icon SVG
 const CoinIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
@@ -50,16 +49,15 @@ const Navbar: React.FC = () => {
     <nav className="bg-slate-800 shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-3">
-          {/* Logo and App Title */}
           <div className="flex items-center space-x-2">
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Pokeball Icon" className="h-8 w-8"/>
             <NavLink to="/" onClick={closeMobileMenu} className="text-xl font-bold text-yellow-400">PokéHabits</NavLink>
           </div>
 
-          {/* Desktop Menu (Links & Save Button) */}
           <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
             <NavLink to="/" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Hábitos</NavLink>
             <NavLink to="/shop" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Loja</NavLink>
+            <NavLink to="/active-pokemon" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Ativos</NavLink>
             {canAccessSharedHabits && (
               <NavLink to="/shared-habits" className={({ isActive }) => isActive ? activeStyle : inactiveStyle}>Encrenca em Dobro</NavLink>
             )}
@@ -74,13 +72,11 @@ const Navbar: React.FC = () => {
               onClick={handleNavbarSave}
               disabled={isSavingNavbar}
               className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors disabled:opacity-70"
-              aria-live="polite"
             >
               {isSavingNavbar ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
 
-          {/* Desktop Menu (Profile, Coins & Logout) */}
           <div className="hidden md:flex items-center space-x-4">
             {currentUser && (
               <>
@@ -91,7 +87,6 @@ const Navbar: React.FC = () => {
                 <NavLink
                   to="/profile"
                   className={({ isActive }) => `${isActive ? 'text-yellow-400 font-semibold' : 'text-slate-300 hover:text-yellow-400'} transition-colors px-2 py-1 rounded-md flex items-center`}
-                  title="Ver Perfil"
                 >
                   {currentUser.username}
                 </NavLink>
@@ -105,15 +100,11 @@ const Navbar: React.FC = () => {
             </button>
           </div>
 
-          {/* Mobile Menu Button with Avatar */}
           <div className="md:hidden flex items-center space-x-2">
             {selectedAvatar && <img src={selectedAvatar.navbarSpriteUrl} alt="Trainer Avatar" className="h-7 w-7 rounded-full object-contain bg-slate-700 p-0.5" loading="lazy" width="28" height="28" />}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-slate-300 hover:text-yellow-400 focus:outline-none focus:text-yellow-400 p-1"
-              aria-controls="mobile-menu"
-              aria-expanded={isMobileMenuOpen}
-              aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
             >
               <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                 {isMobileMenuOpen ? (
@@ -126,12 +117,12 @@ const Navbar: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Menu (Collapsible) */}
         {isMobileMenuOpen && (
           <div className="md:hidden py-2" id="mobile-menu">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col">
               <NavLink to="/" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Hábitos</NavLink>
               <NavLink to="/shop" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Loja</NavLink>
+              <NavLink to="/active-pokemon" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Pokémon Ativos</NavLink>
               {canAccessSharedHabits && (
                 <NavLink to="/shared-habits" className={({ isActive }) => isActive ? mobileActiveStyle : mobileInactiveStyle} onClick={closeMobileMenu}>Encrenca em Dobro</NavLink>
               )}
@@ -163,7 +154,6 @@ const Navbar: React.FC = () => {
                 onClick={() => { handleNavbarSave(); closeMobileMenu(); }} 
                 disabled={isSavingNavbar} 
                 className={mobileButtonStyle}
-                aria-live="polite"
               >
                 {isSavingNavbar ? 'Salvando...' : 'Salvar Dados'}
               </button>

@@ -3,13 +3,13 @@ export interface Habit {
   id: string;
   text: string;
   completedToday: boolean;
-  rewardClaimedToday: boolean; // Signifies rewards for this completion have been processed
-  totalCompletions: number; // Added to track total times this habit was confirmed
+  rewardClaimedToday: boolean; 
+  totalCompletions: number; 
 }
 
 export interface ProgressionHabit {
-  id: string; // Unique ID for the progression habit
-  mainHabitId: string; // ID of the main habit it's linked to
+  id: string; 
+  mainHabitId: string; 
   text: string;
   completedToday: boolean;
   totalCompletions: number;
@@ -22,8 +22,8 @@ export interface PeriodicHabit {
   text: string;
   period: PeriodicHabitType;
   isCompleted: boolean;
-  currentPeriodStartDate: string; // YYYY-MM-DD, when the current active period started
-  createdAt: string; // ISO string
+  currentPeriodStartDate: string; 
+  createdAt: string; 
 }
 
 export interface PokemonBase {
@@ -34,11 +34,30 @@ export interface PokemonBase {
 export type BallType = 'poke' | 'great' | 'ultra' | 'master';
 
 export interface CaughtPokemon extends PokemonBase {
-  instanceId: string; // Unique identifier for this specific catch
-  caughtDate: string; // ISO string
+  instanceId: string; 
+  caughtDate: string; 
   spriteUrl: string;
-  caughtWithBallType: BallType; // Added to track how the Pokemon was caught
-  isShiny: boolean; // Added to track if the Pokemon is shiny
+  caughtWithBallType: BallType; 
+  isShiny: boolean; 
+  isActive?: boolean; // Flag to indicate if it's currently an Active Playable Pokemon
+}
+
+export interface PokemonStats {
+  hp: number;
+  attack: number;
+  defense: number;
+  accuracy: number;
+  agility: number;
+}
+
+export interface PlayablePokemon {
+  instanceId: string; // Links to the CaughtPokemon instanceId
+  id: number;
+  name: string;
+  spriteUrl: string;
+  isShiny: boolean;
+  stats: PokemonStats;
+  activatedAt: string;
 }
 
 export type SharedHabitStatus = 'pending_creator_approval' | 'pending_invitee_approval' | 'active' | 'declined_creator' | 'declined_invitee' | 'cancelled_creator' | 'completed_both_today' | 'archived';
@@ -51,38 +70,36 @@ export interface SharedHabit {
   status: SharedHabitStatus;
   creatorCompletedToday: boolean;
   inviteeCompletedToday: boolean;
-  lastRewardGrantedDate?: string; // YYYY-MM-DD, set when joint reward is given for the day
-  lastCompletionResetDate: string; // YYYY-MM-DD, when completion flags were last reset
-  createdAt: string; // ISO string
-  updatedAt: string; // ISO string
-  // Streaks are stored directly on the UserProfile in a map for simplicity with their partner
+  lastRewardGrantedDate?: string; 
+  lastCompletionResetDate: string; 
+  createdAt: string; 
+  updatedAt: string; 
 }
 
-// Simplified version for displaying invitations or requests in UI lists
 export interface SharedHabitDisplayInfo {
   id: string;
-  partnerUsername: string; // Either creator or invitee depending on context
+  partnerUsername: string; 
   habitText: string;
-  status: SharedHabitStatus; // To know if it's pending your action, or waiting for them
+  status: SharedHabitStatus; 
   isCurrentUserCreator: boolean;
 }
 
-
 export interface UserProfile {
   username: string;
-  password?: string; // Added for password protection
+  password?: string; 
   habits: Habit[];
-  progressionHabits: ProgressionHabit[]; // Added for progression habits
-  periodicHabits: PeriodicHabit[]; // Added for periodic habits
+  progressionHabits: ProgressionHabit[]; 
+  periodicHabits: PeriodicHabit[]; 
   caughtPokemon: CaughtPokemon[];
+  activePokemon: PlayablePokemon[]; // New field for Playable Pokemon instances
   pokeBalls: number;
   greatBalls: number;
   ultraBalls: number;
-  masterBalls: number; // Added Master Balls
-  taskCoins: number; // Added for task coins
+  masterBalls: number; 
+  taskCoins: number; 
   dailyCompletions: number;
-  lastResetDate: string; // YYYY-MM-DD (local)
-  shinyCaughtPokemonIds: number[]; // Added to track unique shiny species caught
+  lastResetDate: string; 
+  shinyCaughtPokemonIds: number[]; 
   
   dailyStreak: number; 
   lastStreakUpdateDate: string; 
@@ -96,16 +113,15 @@ export interface UserProfile {
   lastTenHabitStreakUpdateDate: string;
   lastTenHabitStreakDayClaimedForReward: number;
   
-  experiencePoints: number; // Added for player XP
-  shareHabitsPublicly?: boolean; // Added for sharing habits preference
-  lastLevelRewardClaimed: number; // Tracks the last level for which rewards were claimed
-  maxHabitSlots: number; // Tracks the maximum number of habits the user can have
-  avatarId?: string; // Added to store the selected avatar ID
-  boostedHabitId?: string | null; // Added for habit boost feature
+  experiencePoints: number; 
+  shareHabitsPublicly?: boolean; 
+  lastLevelRewardClaimed: number; 
+  maxHabitSlots: number; 
+  avatarId?: string; 
+  boostedHabitId?: string | null; 
 
-  // Fields for Shared Habits
-  sharedHabitStreaks: Record<string, number>; // e.g., { "partnerUsername": 5 }
-  lastSharedHabitCompletionResetDate: string; // YYYY-MM-DD, similar to lastResetDate but for shared habit completion flags if managed globally (though individual SharedHabit objects might also track their own reset)
+  sharedHabitStreaks: Record<string, number>; 
+  lastSharedHabitCompletionResetDate: string; 
 }
 
 export enum SortOption {
@@ -125,14 +141,13 @@ export interface TradeOfferInput {
 export interface TradeOffer {
   id:string;
   description: string;
-  inputPokemon: TradeOfferInput[]; // Changed to array to support multiple input types
+  inputPokemon: TradeOfferInput[]; 
   outputBall: {
     type: BallType;
     count: number;
   };
 }
 
-// FIX: Define and export WeightedPokemonEntry interface
 export interface WeightedPokemonEntry {
   id: number;
   weight: number;
@@ -161,5 +176,5 @@ export interface AvatarOption {
   name: string;
   profileImageUrl: string;
   navbarSpriteUrl: string;
-  gymLeaderId?: string; // Optional: Links avatar to a gym leader for unlock conditions
+  gymLeaderId?: string; 
 }

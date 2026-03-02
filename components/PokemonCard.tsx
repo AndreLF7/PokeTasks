@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CaughtPokemon, BallType } from '../types'; 
 import { getTranslatedBallName } from '../constants';
@@ -38,10 +39,11 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
     "bg-slate-800 rounded-xl shadow-lg p-4 flex flex-col items-center text-center relative transition-all duration-200",
     isTradeMode ? "cursor-pointer hover:shadow-xl" : "transform hover:scale-105 hover:shadow-xl",
     isSelected ? "ring-4 ring-yellow-500 ring-inset" : "ring-2 ring-transparent",
+    pokemon.isActive ? "border-2 border-blue-500" : ""
   ].join(" ");
 
   const handleCardClick = () => {
-    if (isTradeMode && onSelect) {
+    if (isTradeMode && onSelect && !pokemon.isActive) {
       onSelect(pokemon.instanceId);
     }
   };
@@ -53,7 +55,13 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
       onKeyDown={isTradeMode ? (e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick() : undefined}
       aria-pressed={isTradeMode ? isSelected : undefined}
     >
-      {onRelease && !isTradeMode && (
+      {pokemon.isActive && (
+        <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-md z-20">
+          ATIVO
+        </div>
+      )}
+      
+      {onRelease && !isTradeMode && !pokemon.isActive && (
         <button
           onClick={(e) => { e.stopPropagation(); onRelease(pokemon.instanceId); }}
           className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center transition-colors z-10"
@@ -63,15 +71,16 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
           ✕
         </button>
       )}
+      
       {isTradeMode && isSelected && (
-         <div className="absolute top-2 left-2 bg-yellow-500 text-slate-900 text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center z-10">
+         <div className="absolute top-2 right-2 bg-yellow-500 text-slate-900 text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center z-10">
            ✓
          </div>
       )}
       <img
         src={pokemon.spriteUrl}
         alt={pokemon.isShiny ? `${pokemon.name} (Shiny)` : pokemon.name}
-        className="w-32 h-32 object-contain mb-2 pointer-events-none" 
+        className={`w-32 h-32 object-contain mb-2 pointer-events-none ${pokemon.isActive ? 'drop-shadow-lg' : ''}`} 
         loading="lazy"
       />
       <h3 className="text-lg font-bold text-yellow-400 capitalize flex items-center justify-center">

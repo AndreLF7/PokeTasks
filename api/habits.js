@@ -37,6 +37,23 @@ const CaughtPokemonSchema = new mongoose.Schema({
   spriteUrl: String,
   caughtWithBallType: String, 
   isShiny: Boolean,
+  isActive: { type: Boolean, default: false }
+}, { _id: false });
+
+const PlayablePokemonSchema = new mongoose.Schema({
+  instanceId: String,
+  id: Number,
+  name: String,
+  spriteUrl: String,
+  isShiny: Boolean,
+  stats: {
+    hp: Number,
+    attack: Number,
+    defense: Number,
+    accuracy: Number,
+    agility: Number
+  },
+  activatedAt: String
 }, { _id: false });
 
 const UserProfileSchema = new mongoose.Schema({
@@ -44,14 +61,15 @@ const UserProfileSchema = new mongoose.Schema({
   password: { type: String }, 
   habits: [HabitSchema],
   progressionHabits: [ProgressionHabitSchema], 
-  periodicHabits: { type: [PeriodicHabitSchema], default: [] }, // Added periodic habits
+  periodicHabits: { type: [PeriodicHabitSchema], default: [] },
   caughtPokemon: [CaughtPokemonSchema],
-  pokeBalls: Number,
-  greatBalls: Number,
-  ultraBalls: Number,
-  masterBalls: Number,
+  activePokemon: { type: [PlayablePokemonSchema], default: [] }, // New field
+  pokeBalls: { type: Number, default: 0 },
+  greatBalls: { type: Number, default: 0 },
+  ultraBalls: { type: Number, default: 0 },
+  masterBalls: { type: Number, default: 0 },
   taskCoins: { type: Number, default: 0 }, 
-  dailyCompletions: Number,
+  dailyCompletions: { type: Number, default: 0 },
   lastResetDate: String, 
   shinyCaughtPokemonIds: [Number],
   
@@ -83,119 +101,39 @@ const uri = process.env.MONGODB_URI;
 let isConnected = false;
 
 async function connectToDatabase() {
-  if (isConnected && mongoose.connection.readyState === 1) {
-    console.log("MongoDB already connected.");
-    return;
-  }
-  try {
-    if (!uri) {
-        throw new Error("MONGODB_URI not defined in environment variables.");
-    }
-    console.log("Connecting to MongoDB...");
-    await mongoose.connect(uri);
-    isConnected = true;
-    console.log("MongoDB connected successfully.");
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    isConnected = false; 
-    throw error; 
-  }
+  if (isConnected && mongoose.connection.readyState === 1) return;
+  if (!uri) throw new Error("MONGODB_URI not defined.");
+  await mongoose.connect(uri);
+  isConnected = true;
 }
 
 export default async function handler(req, res) {
   try {
     await connectToDatabase();
-  } catch (dbError) {
-    console.error("Database connection setup failed:", dbError);
-    return res.status(500).json({ error: 'Database connection failed. Please check server logs.'});
+  } catch (err) {
+    return res.status(500).json({ error: 'DB Connection failed' });
   }
 
-  if (req.method === 'POST') { // Save user profile
+  if (req.method === 'POST') {
     try {
-      const profileData = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      
-      if (!profileData || !profileData.username) {
-        return res.status(400).json({ error: 'Username is required in profile data.' });
-      }
-
-      // Ensure defaults for new fields if not present
-      profileData.taskCoins = profileData.taskCoins ?? 0;
-      profileData.progressionHabits = profileData.progressionHabits ?? [];
-      profileData.periodicHabits = profileData.periodicHabits ?? []; // Ensure periodicHabits default
-      profileData.lastStreakDayClaimedForReward = profileData.lastStreakDayClaimedForReward ?? 0;
-      profileData.dailyStreak = profileData.dailyStreak ?? 0;
-      profileData.lastStreakUpdateDate = profileData.lastStreakUpdateDate ?? "";
-
-      profileData.fiveHabitStreak = profileData.fiveHabitStreak ?? 0;
-      profileData.lastFiveHabitStreakUpdateDate = profileData.lastFiveHabitStreakUpdateDate ?? "";
-      profileData.lastFiveHabitStreakDayClaimedForReward = profileData.lastFiveHabitStreakDayClaimedForReward ?? 0;
-
-      profileData.tenHabitStreak = profileData.tenHabitStreak ?? 0;
-      profileData.lastTenHabitStreakUpdateDate = profileData.lastTenHabitStreakUpdateDate ?? "";
-      profileData.lastTenHabitStreakDayClaimedForReward = profileData.lastTenHabitStreakDayClaimedForReward ?? 0;
-
-      profileData.shareHabitsPublicly = profileData.shareHabitsPublicly ?? false;
-      profileData.lastLevelRewardClaimed = profileData.lastLevelRewardClaimed ?? 1;
-      profileData.maxHabitSlots = 10; 
-      profileData.avatarId = profileData.avatarId ?? 'red';
-      profileData.boostedHabitId = profileData.boostedHabitId === undefined ? null : profileData.boostedHabitId; 
-      profileData.sharedHabitStreaks = profileData.sharedHabitStreaks ?? {};
-      profileData.lastSharedHabitCompletionResetDate = profileData.lastSharedHabitCompletionResetDate ?? '';
-      
-
+      const profileData = req.body;
       const updatedProfile = await UserProfileModel.findOneAndUpdate(
         { username: profileData.username },
         profileData,
-        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+        { new: true, upsert: true }
       );
-      
-      const { password, ...profileToReturn } = updatedProfile.toObject();
-      return res.status(200).json({ message: 'Profile saved successfully.', profile: profileToReturn });
+      return res.status(200).json({ message: 'Saved successfully.', profile: updatedProfile });
     } catch (error) {
-      console.error('Error saving profile:', error);
-      return res.status(500).json({ error: 'Failed to save profile. An internal error occurred.' });
+      return res.status(500).json({ error: 'Failed to save profile.' });
     }
-  } else if (req.method === 'GET') { // Load user profile
+  } else if (req.method === 'GET') {
     try {
       const { username } = req.query;
-      if (!username) {
-        return res.status(400).json({ error: 'Username query parameter is required.' });
-      }
       const profile = await UserProfileModel.findOne({ username }).lean(); 
-      if (!profile) {
-        return res.status(404).json({ error: 'Profile not found.' });
-      }
-      
-      // Ensure new fields have defaults if loading an older document
-      profile.taskCoins = profile.taskCoins ?? 0;
-      profile.progressionHabits = profile.progressionHabits ?? [];
-      profile.periodicHabits = profile.periodicHabits ?? []; // Ensure periodicHabits default
-      profile.lastLevelRewardClaimed = profile.lastLevelRewardClaimed ?? 1;
-      profile.maxHabitSlots = 10; 
-      profile.avatarId = profile.avatarId ?? 'red';
-      profile.boostedHabitId = profile.boostedHabitId === undefined ? null : profile.boostedHabitId; 
-      profile.sharedHabitStreaks = profile.sharedHabitStreaks ?? {};
-      profile.lastSharedHabitCompletionResetDate = profile.lastSharedHabitCompletionResetDate ?? '';
-
-      profile.dailyStreak = profile.dailyStreak ?? 0;
-      profile.lastStreakUpdateDate = profile.lastStreakUpdateDate ?? "";
-      profile.lastStreakDayClaimedForReward = profile.lastStreakDayClaimedForReward ?? 0;
-      profile.fiveHabitStreak = profile.fiveHabitStreak ?? 0;
-      profile.lastFiveHabitStreakUpdateDate = profile.lastFiveHabitStreakUpdateDate ?? "";
-      profile.lastFiveHabitStreakDayClaimedForReward = profile.lastFiveHabitStreakDayClaimedForReward ?? 0;
-      profile.tenHabitStreak = profile.tenHabitStreak ?? 0;
-      profile.lastTenHabitStreakUpdateDate = profile.lastTenHabitStreakUpdateDate ?? "";
-      profile.lastTenHabitStreakDayClaimedForReward = profile.lastTenHabitStreakDayClaimedForReward ?? 0;
-      
-      delete profile._id; 
-      delete profile.__v; 
+      if (!profile) return res.status(404).json({ error: 'Not found' });
       return res.status(200).json(profile); 
     } catch (error) {
-      console.error('Error loading profile:', error);
-      return res.status(500).json({ error: 'Failed to load profile. An internal error occurred.' });
+      return res.status(500).json({ error: 'Failed to load profile.' });
     }
-  } else {
-    res.setHeader('Allow', ['GET', 'POST']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }

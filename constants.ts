@@ -1,9 +1,9 @@
 
-import { PokemonBase, TradeOffer, BallType, WeightedPokemonEntry, GymLeader, AvatarOption } from './types';
+import { PokemonBase, TradeOffer, BallType, WeightedPokemonEntry, GymLeader, AvatarOption, PokemonStats } from './types';
 
-// FIX: Re-export WeightedPokemonEntry so other modules importing from constants.ts can access it
 export type { WeightedPokemonEntry, GymLeader, AvatarOption };
 
+export const TEST_USER_USERNAME = "Testmon";
 export const INITIAL_MAX_HABIT_SLOTS = 10;
 export const POKEMON_API_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 export const POKEMON_API_SHINY_SPRITE_URL = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`;
@@ -24,10 +24,30 @@ export const TASK_COINS_FROM_GREATBALL = 5;
 export const TASK_COINS_FROM_ULTRABALL = 10;
 export const TASK_COINS_FROM_MASTERBALL = 25;
 
-// Shop Prices
+// Shop Prices (PokéCoins)
 export const PRICE_POKEBALL = 10;
 export const PRICE_GREATBALL = 30;
 export const PRICE_ULTRABALL = 75;
+export const PRICE_ACTIVATE_POKEMON = 1000;
+
+// Eligible IDs for activation
+export const ELIGIBLE_FOR_ACTIVATION = [1, 4, 7, 25]; // Bulbasaur, Charmander, Squirtle, Pikachu
+
+// Playable Stats Ranges
+export const PLAYABLE_STATS_RANGES: Record<number, { hp: [number, number], attack: [number, number], defense: [number, number], accuracy: [number, number], agility: [number, number] }> = {
+  4: { // Charmander
+    hp: [20, 30], attack: [6, 10], defense: [4, 8], accuracy: [5, 9], agility: [6, 10]
+  },
+  1: { // Bulbasaur
+    hp: [20, 30], attack: [7, 11], defense: [5, 9], accuracy: [6, 10], agility: [4, 8]
+  },
+  7: { // Squirtle
+    hp: [20, 30], attack: [3, 8], defense: [7, 11], accuracy: [6, 10], agility: [5, 9]
+  },
+  25: { // Pikachu
+    hp: [20, 30], attack: [5, 9], defense: [5, 9], accuracy: [5, 9], agility: [5, 9]
+  }
+};
 
 export const LEVEL_THRESHOLDS: number[] = [
   0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500, 6600, 7800, 9100, 10500,

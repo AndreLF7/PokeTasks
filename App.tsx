@@ -2,12 +2,12 @@
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Toast from './components/Toast'; // Import Toast
+import Toast from './components/Toast'; 
 import HabitsPage from './pages/HabitsPage';
 import MyPokemonPage from './pages/MyPokemonPage';
 import PokedexPage from './pages/PokedexPage';
 import BallFilteredPokedexPage from './pages/BallFilteredPokedexPage';
-import GymLeadersPage from './pages/GymLeadersPage'; // Import GymLeadersPage
+import GymLeadersPage from './pages/GymLeadersPage'; 
 import LoginPage from './pages/LoginPage';
 import BallOddsPage from './pages/BallOddsPage';
 import StatsPage from './pages/StatsPage';
@@ -19,6 +19,7 @@ import SharedHabitsPage from './pages/SharedHabitsPage';
 import HabitProgressionPage from './pages/HabitProgressionPage';
 import PeriodicHabitsPage from './pages/PeriodicHabitsPage'; 
 import ShopPage from './pages/ShopPage';
+import ActivePokemonPage from './pages/ActivePokemonPage';
 import { useUser } from './contexts/UserContext';
 
 const App: React.FC = () => {
@@ -29,7 +30,7 @@ const App: React.FC = () => {
     if (toastMessage) {
       timer = setTimeout(() => {
         clearToastMessage();
-      }, 5000); // Auto-dismiss after 5 seconds
+      }, 5000); 
     }
     return () => {
       if (timer) clearTimeout(timer);
@@ -53,6 +54,7 @@ const App: React.FC = () => {
             <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage />} />
             <Route path="/" element={currentUser ? <HabitsPage /> : <Navigate to="/login" />} />
             <Route path="/shop" element={currentUser ? <ShopPage /> : <Navigate to="/login" />} />
+            <Route path="/active-pokemon" element={currentUser ? <ActivePokemonPage /> : <Navigate to="/login" />} />
             <Route path="/my-pokemon" element={currentUser ? <MyPokemonPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex" element={currentUser ? <PokedexPage /> : <Navigate to="/login" />} />
             <Route path="/pokedex/:ballType" element={currentUser ? <BallFilteredPokedexPage /> : <Navigate to="/login" />} />
