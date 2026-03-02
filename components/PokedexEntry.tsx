@@ -99,6 +99,7 @@ const PokedexEntry: React.FC<PokedexEntryProps> = ({ pokemon, isNormalCaught, is
         className={`w-24 h-24 md:w-32 md:h-32 object-contain mb-2 ${!currentViewIsCaught ? 'pokemon-silhouette' : ''}`}
         loading="lazy"
         onError={handleImageError}
+        referrerPolicy="no-referrer"
       />
       <h3 className={`text-lg font-semibold capitalize ${currentViewIsCaught ? (viewingShinySprite && isShinyCaught ? 'text-yellow-300' : 'text-yellow-400') : 'text-slate-500'}`}>
         {displayName}

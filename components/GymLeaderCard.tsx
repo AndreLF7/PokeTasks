@@ -20,6 +20,7 @@ const GymLeaderCard: React.FC<GymLeaderCardProps> = ({ leader, isUnlocked }) => 
         alt={isUnlocked ? leader.name : `${leader.name} (Bloqueado)`}
         className={imageClasses}
         loading="lazy"
+        referrerPolicy="no-referrer"
       />
       <h3 className={`text-xl font-bold capitalize mb-1 ${textColor}`}>
         {isUnlocked ? leader.name : '???'}

@@ -38,6 +38,7 @@ const LoginPage: React.FC = () => {
           src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
           alt="Pikachu"
           className="w-32 h-32 mx-auto mb-6"
+          referrerPolicy="no-referrer"
         />
         <h1 className="text-3xl font-bold text-yellow-400 mb-6">Bem-vindo, Treinador!</h1>
         <p className="text-slate-300 mb-8">Digite seu nome e senha para começar sua jornada de Hábitos Pokémon.</p>

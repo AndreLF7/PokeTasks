@@ -82,6 +82,7 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
         alt={pokemon.isShiny ? `${pokemon.name} (Shiny)` : pokemon.name}
         className={`w-32 h-32 object-contain mb-2 pointer-events-none ${pokemon.isActive ? 'drop-shadow-lg' : ''}`} 
         loading="lazy"
+        referrerPolicy="no-referrer"
       />
       <h3 className="text-lg font-bold text-yellow-400 capitalize flex items-center justify-center">
         {pokemon.name}
@@ -90,7 +91,7 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
       <p className="text-sm text-slate-400">#{String(pokemon.id).padStart(3, '0')}</p>
       {showDate && <p className="text-xs text-slate-500 mt-1">Capturado em: {new Date(pokemon.caughtDate).toLocaleDateString('pt-BR')}</p>}
       <div className="mt-1 flex items-center justify-center" title={`Capturado com ${translatedBallName}`}>
-        <img src={getBallIconMini(pokemon.caughtWithBallType)} alt={translatedBallName} className="w-4 h-4 mr-1"/>
+        <img src={getBallIconMini(pokemon.caughtWithBallType)} alt={translatedBallName} className="w-4 h-4 mr-1" referrerPolicy="no-referrer"/>
         <span className="text-xs text-slate-500">{translatedBallName}</span>
       </div>
     </div>

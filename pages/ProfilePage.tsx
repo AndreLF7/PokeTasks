@@ -119,6 +119,7 @@ const ProfilePage: React.FC = () => {
                   alt={`${currentSelectedAvatarDetails.name} Avatar`} 
                   className="w-full h-full object-contain rounded-lg bg-slate-700 p-1 shadow-lg transition-transform group-hover:scale-105"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
               />
           )}
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-300 rounded-lg">
@@ -162,6 +163,7 @@ const ProfilePage: React.FC = () => {
                   loading="lazy"
                   width="96"
                   height="96"
+                  referrerPolicy="no-referrer"
                 />
                 <p className={`text-center text-xs mt-1 truncate ${isSelected && unlocked ? 'text-yellow-300 font-semibold' : 'text-slate-300'}`}>
                   {avatarOpt.name}

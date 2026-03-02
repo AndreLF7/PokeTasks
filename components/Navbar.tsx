@@ -101,7 +101,7 @@ const Navbar: React.FC = () => {
           </div>
 
           <div className="md:hidden flex items-center space-x-2">
-            {selectedAvatar && <img src={selectedAvatar.navbarSpriteUrl} alt="Trainer Avatar" className="h-7 w-7 rounded-full object-contain bg-slate-700 p-0.5" loading="lazy" width="28" height="28" />}
+            {selectedAvatar && <img src={selectedAvatar.navbarSpriteUrl} alt="Trainer Avatar" className="h-7 w-7 rounded-full object-contain bg-slate-700 p-0.5" loading="lazy" width="28" height="28" referrerPolicy="no-referrer" />}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-slate-300 hover:text-yellow-400 focus:outline-none focus:text-yellow-400 p-1"

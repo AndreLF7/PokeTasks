@@ -118,6 +118,7 @@ const RankingPage: React.FC = () => {
                               alt={`${trainer.username} avatar`} 
                               className="h-7 w-7 rounded-full object-contain bg-slate-700 p-0.5" 
                               loading="lazy"
+                              referrerPolicy="no-referrer"
                             />
                           )}
                           <Link 
