@@ -122,6 +122,7 @@ export interface UserProfile {
 
   sharedHabitStreaks: Record<string, number>; 
   lastSharedHabitCompletionResetDate: string; 
+  captureCounts: Record<number, number>; 
 }
 
 export enum SortOption {

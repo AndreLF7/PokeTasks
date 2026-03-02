@@ -103,6 +103,7 @@ const PokedexPage: React.FC = () => {
               pokemon={pokemon}
               isNormalCaught={isNormalCaught}
               isShinyCaught={isShinyVersionCaught}
+              captureCount={currentUser.captureCounts?.[pokemon.id] || 0}
             />
           );
         })}

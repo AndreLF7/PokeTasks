@@ -382,6 +382,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       profile.sharedHabitStreaks = (typeof profile.sharedHabitStreaks === 'object' && profile.sharedHabitStreaks !== null && !Array.isArray(profile.sharedHabitStreaks))
         ? profile.sharedHabitStreaks : {};
       profile.lastSharedHabitCompletionResetDate = parseDateField(profile.lastSharedHabitCompletionResetDate, getTodayDateString()); 
+      profile.captureCounts = (typeof profile.captureCounts === 'object' && profile.captureCounts !== null && !Array.isArray(profile.captureCounts))
+        ? profile.captureCounts : {};
 
       return profile as UserProfile;
     } catch (error) {
@@ -396,6 +398,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         experiencePoints: 0, shareHabitsPublicly: false,
         lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
         boostedHabitId: null, sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: todayStr,
+        captureCounts: {},
       };
     }
   }, []);
@@ -548,6 +551,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           experiencePoints: 0, shareHabitsPublicly: false,
           lastLevelRewardClaimed: 1, maxHabitSlots: INITIAL_MAX_HABIT_SLOTS, avatarId: DEFAULT_AVATAR_ID,
           boostedHabitId: null, sharedHabitStreaks: {}, lastSharedHabitCompletionResetDate: todayStr,
+          captureCounts: {},
         };
         isNewUserScenario = true;
       } else {
@@ -755,6 +759,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (type === 'poke') profile.pokeBalls--; else if (type === 'great') profile.greatBalls--; else if (type === 'ultra') profile.ultraBalls--; else profile.masterBalls--;
     profile.experiencePoints += type === 'poke' ? XP_FROM_POKEBALL : type === 'great' ? XP_FROM_GREATBALL : type === 'ultra' ? XP_FROM_ULTRABALL : XP_FROM_MASTERBALL;
     profile.taskCoins += type === 'poke' ? TASK_COINS_FROM_POKEBALL : type === 'great' ? TASK_COINS_FROM_GREATBALL : type === 'ultra' ? TASK_COINS_FROM_ULTRABALL : TASK_COINS_FROM_MASTERBALL;
+
+    // Increment capture count
+    if (!profile.captureCounts) profile.captureCounts = {};
+    profile.captureCounts[newPkmn.id] = (profile.captureCounts[newPkmn.id] || 0) + 1;
 
     updateUserProfile(profile);
     saveProfileToCloud();

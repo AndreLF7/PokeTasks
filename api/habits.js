@@ -93,6 +93,7 @@ const UserProfileSchema = new mongoose.Schema({
   boostedHabitId: { type: String, default: null }, 
   sharedHabitStreaks: { type: Map, of: Number, default: {} }, 
   lastSharedHabitCompletionResetDate: { type: String, default: '' }, 
+  captureCounts: { type: Map, of: Number, default: {} }, 
 });
 
 const UserProfileModel = mongoose.models.UserProfile || mongoose.model('UserProfile', UserProfileSchema);

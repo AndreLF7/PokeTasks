@@ -106,14 +106,14 @@ const ShopPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 px-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 px-4 opacity-75 pointer-events-none grayscale">
         <ShopItem
           type="poke"
           price={getPrice(PRICE_POKEBALL)}
           icon="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png"
           count={currentUser.pokeBalls}
           onBuy={handleBuy}
-          canAfford={currentCoins >= getPrice(PRICE_POKEBALL)}
+          canAfford={false}
         />
         <ShopItem
           type="great"
@@ -121,7 +121,7 @@ const ShopPage: React.FC = () => {
           icon="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png"
           count={currentUser.greatBalls}
           onBuy={handleBuy}
-          canAfford={currentCoins >= getPrice(PRICE_GREATBALL)}
+          canAfford={false}
         />
         <ShopItem
           type="ultra"
@@ -129,7 +129,7 @@ const ShopPage: React.FC = () => {
           icon="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png"
           count={currentUser.ultraBalls}
           onBuy={handleBuy}
-          canAfford={currentCoins >= getPrice(PRICE_ULTRABALL)}
+          canAfford={false}
         />
         <ShopItem
           type="activation"
@@ -138,8 +138,13 @@ const ShopPage: React.FC = () => {
           icon="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png"
           description="Torne um inicial jogável com status exclusivos!"
           onBuy={handleBuy}
-          canAfford={currentCoins >= getPrice(PRICE_ACTIVATE_POKEMON)}
+          canAfford={false}
         />
+      </div>
+
+      <div className="mt-8 text-center p-4 bg-yellow-500/20 border border-yellow-500 rounded-lg max-w-2xl mx-auto">
+        <p className="text-yellow-400 font-bold">⚠️ Loja em Manutenção</p>
+        <p className="text-slate-300 text-sm mt-1">Estamos trabalhando em novas funcionalidades para a loja. As compras estão temporariamente desativadas.</p>
       </div>
 
       <Modal isOpen={isActivationModalOpen} onClose={() => !isProcessing && setIsActivationModalOpen(false)} title="Escolha o Pokémon para Ativar">

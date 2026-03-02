@@ -7,9 +7,10 @@ interface PokedexEntryProps {
   pokemon: PokemonBase;
   isNormalCaught: boolean;
   isShinyCaught: boolean;
+  captureCount: number;
 }
 
-const PokedexEntry: React.FC<PokedexEntryProps> = ({ pokemon, isNormalCaught, isShinyCaught }) => {
+const PokedexEntry: React.FC<PokedexEntryProps> = ({ pokemon, isNormalCaught, isShinyCaught, captureCount }) => {
   // Default to showing shiny if only shiny is caught, otherwise normal (if caught)
   const [viewingShinySprite, setViewingShinySprite] = useState(isShinyCaught && !isNormalCaught);
 
@@ -106,6 +107,11 @@ const PokedexEntry: React.FC<PokedexEntryProps> = ({ pokemon, isNormalCaught, is
       <p className={`text-sm ${currentViewIsCaught ? 'text-slate-300' : 'text-slate-600'}`}>
         #{String(pokemon.id).padStart(3, '0')}
       </p>
+      {overallIsCaught && (
+        <div className="mt-2 text-xs font-medium text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded-full">
+          Capturados: <span className="text-yellow-400">{captureCount}</span>
+        </div>
+      )}
     </div>
   );
 };
